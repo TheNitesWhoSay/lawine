@@ -15,12 +15,12 @@
 
 /************************************************************************/
 
-#define IMPLODE_BINARY		0			// Binary compression
-#define IMPLODE_ASCII		1			// ASCII compression
+#define IMPLODE_BINARY		0			/* Binary compression */
+#define IMPLODE_ASCII		1			/* ASCII compression */
 
-#define IMPLODE_DICT_1K		4			// Dictionary size is 1024
-#define IMPLODE_DICT_2K		5			// Dictionary size is 2048
-#define IMPLODE_DICT_4K		6			// Dictionary size is 4096
+#define IMPLODE_DICT_1K		4			/* Dictionary size is 1KB */
+#define IMPLODE_DICT_2K		5			/* Dictionary size is 2KB */
+#define IMPLODE_DICT_4K		6			/* Dictionary size is 4KB */
 
 /************************************************************************/
 

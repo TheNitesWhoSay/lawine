@@ -155,8 +155,8 @@ enum {
 };
 
 typedef struct {
-	WORD	mega_index:4;
-	WORD	group_no:12;
+	WORD mega_index:4;
+	WORD group_no:12;
 } LTILEIDX;
 
 typedef struct {
@@ -172,11 +172,21 @@ typedef struct {
 	LISOMCOORD bottom;
 } LISOMTILE;
 
+typedef struct {
+	WORD dd_no;
+	WORD x;
+	WORD y;
+	BYTE owner;
+} LDOODAD;
+
 typedef LTILEIDX		*LTILEPTR;
 typedef CONST LTILEIDX	*LTILECPTR;
 
 typedef LISOMTILE		*LISOMPTR;
 typedef CONST LISOMTILE	*LISOMCPTR;
+
+typedef LDOODAD			*LDDPTR;
+typedef CONST LDOODAD	*LDDCPTR;
 
 /************************************************************************/
 

@@ -105,6 +105,9 @@
 #define IS_FROM_DIR(from, dir)			((from) == (dir) || ((from) + 1) % FROM_NUM == (dir))
 #define MAKE_SHAPE_ID(l, t, r, b)		(((l) << LEFT) | ((t) << TOP) | ((r) << RIGHT) | ((b) << BOTTOM))
 #define LOC_MAP_POS(data, pos, size)	((data) + (pos)->x + (pos)->y * CALC_ISOM_ROW((size)->cx))
+#define CALC_DIRTY_SIZE(size)			((CALC_ISOM_ROW((size)->cx) * CALC_ISOM_LINE((size)->cy)) >> 3)
+#define SET_DIRTY(dirty, pos, size)		(*((BUFPTR)(dirty) + (((pos)->x + (pos)->y * CALC_ISOM_ROW((size)->cx)) >> 3)) |= (1 << ((pos)->x & 0x07)))
+#define GET_DIRTY(dirty, pos, size)		(*((BUFPTR)(dirty) + (((pos)->x + (pos)->y * CALC_ISOM_ROW((size)->cx)) >> 3)) & (1 << ((pos)->x & 0x07)))
 
 // TODO:
 #define M_CENTER						CENTER_FLAG
@@ -495,7 +498,7 @@ struct SHAPE_PARAM {
 											/*	LEFT_TOP		左上菱形的RIGHT */
 											/*	TOP_RIGHT		右上菱形的LEFT */
 											/*	RIGHT_BOTTOM	右下菱形的LEFT */
-											/*	BOTTOM_LEFT	左下菱形的RIGHT */
+											/*	BOTTOM_LEFT		左下菱形的RIGHT */
 	INT		y_abut[SIDE_NUM];				/* Y轴上的水平邻接关系信息 */
 											/* 其索引对应关系为： */
 											/*	LEFT_SIDE		左上菱形的BOTTOM与左下菱形的TOP */
@@ -561,10 +564,10 @@ struct POS_QUENE {
 /************************************************************************/
 
 /* 偶菱形的位置值（left, top, right, bottom顺序） */
-static CONST WORD TILE_POS_EVEN[DIR_NUM] = { 0x8, 0xA, 0x0, 0x2 };
+static CONST WORD TILE_POS_EVEN[DIR_NUM] = { 0x8, 0xa, 0x0, 0x2 };
 
 /* 奇菱形的位置值（left, top, right, bottom顺序） */
-static CONST WORD TILE_POS_ODD[DIR_NUM]  = { 0x4, 0xC, 0xE, 0x6 };
+static CONST WORD TILE_POS_ODD[DIR_NUM]  = { 0x4, 0xc, 0xe, 0x6 };
 
 /* 14种边缘组合形状 */
 static CONST struct SHAPE_PARAM SHAPE_TABLE[SHAPE_NUM] = {
@@ -593,7 +596,7 @@ static struct POS_QUENE *g_PosQueneTail;
 /************************************************************************/
 
 /* 公用函数 */
-static BOOL ValidateIsoMap(CONST ISOM_MAP *map);
+static BOOL ValidateIsoMap(CONST ISOM_MAP *map, BOOL create);
 static BOOL CheckPosition(CONST ISOM_MAP *map, CONST POINT *pos);
 static VOID CalcCornerPosition(INT from, CONST POINT *base, POINT *corner);
 static VOID CalcLinkPosition(INT from, CONST POINT *base, POINT *link);
@@ -855,9 +858,11 @@ VOID ExitIsoMapEra(INT era)
 	DVarClr(g_Isom2Center[era]);
 }
 
-BOOL NewIsoMap(ISOM_MAP *map)
+BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 {
 	INT i, j, row, line;
+	UINT size;
+	VPTR dirty;
 	LISOMPTR data;
 	LISOMCOORD isom;
 
@@ -866,20 +871,37 @@ BOOL NewIsoMap(ISOM_MAP *map)
 		return FALSE;
 
 	/* 参数有效性检查 */
-	if (!ValidateIsoMap(map))
+	if (!ValidateIsoMap(map, TRUE))
 		return FALSE;
+
+	row = CALC_ISOM_ROW(map->size.cx);
+	line = CALC_ISOM_LINE(map->size.cy);
+
+	data = DAlloc(row * line * sizeof(LISOMTILE));
+	if (!data)
+		return FALSE;
+
+	size = CALC_DIRTY_SIZE(&map->size);
+	dirty = DAlloc(size);
+	if (!dirty) {
+		DFree(data);
+		return FALSE;
+	}
+
+	/* 脏标志位图初始化 */
+	DMemClr(dirty, size);
+
+	map->isom = data;
+	map->dirty = dirty;
+
+	/* 仅仅是初始化结构体而不是新建地图的话到此为止 */
+	if (!new_map)
+		return TRUE;
 
 	/* 填充结构设置 */
 	isom.pos = 0;
 	isom.isom = GetCenterIsom(map->era, map->def);
 	isom.unused = 0;
-
-	/* 访问指针初始化 */
-	data = map->isom;
-
-	/* 循环数计算 */
-	row = CALC_ISOM_ROW(map->size.cx);
-	line = CALC_ISOM_LINE(map->size.cy);
 
 	/* 以初始值填充每个ISOM菱形 */
 	for (i = 0; i < line; i++) {
@@ -895,6 +917,18 @@ BOOL NewIsoMap(ISOM_MAP *map)
 	return TRUE;
 }
 
+VOID DestroyIsoMap(ISOM_MAP *map)
+{
+	if (!map)
+		return;
+
+	DFree(map->isom);
+	map->isom = NULL;
+
+	DFree(map->dirty);
+	map->dirty = NULL;
+}
+
 BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
 {
 	POINT pos;
@@ -904,7 +938,7 @@ BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
 		return FALSE;
 
 	/* ISOM地图参数有效性检查 */
-	if (!ValidateIsoMap(map))
+	if (!ValidateIsoMap(map, FALSE))
 		return FALSE;
 
 	/* 画刷索引值即是中央地形，必须在允许值范围内 */
@@ -952,7 +986,7 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 		return FALSE;
 
 	/* 参数有效性检查 */
-	if (!ValidateIsoMap(map) || !tile)
+	if (!ValidateIsoMap(map, FALSE) || !tile)
 		return FALSE;
 
 	/* ISOM行列数计算 */
@@ -973,6 +1007,22 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 			MakeTileMap(map, &pos, isom);
 	}
 
+	/* 根据TILE映射表重新调整脏标志位图 */
+	for (i = 0; i < line; i++) {
+		for (j = 0; j < row; j++) {
+			pos.x = j;
+			pos.y = i;
+			if (!GET_DIRTY(map->dirty, &pos, &map->size))
+				continue;
+			while (LOC_MAP_POS(isom, &pos, &map->size)->up_abut && --pos.y >= 0)
+				SET_DIRTY(map->dirty, &pos, &map->size);
+			pos.x = j;
+			pos.y = i;
+			while (LOC_MAP_POS(isom, &pos, &map->size)->down_abut && ++pos.y < line)
+				SET_DIRTY(map->dirty, &pos, &map->size);
+		}
+	}
+
 	/* 由于下面要用到随机数，因此在此初始化 */
 	DRandSeed((UINT)DTime());
 
@@ -987,20 +1037,34 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 			if (j >= map->size.cx || i >= map->size.cy)
 				continue;
 
+			/* 仅处理脏菱形 */
+			if (!GET_DIRTY(map->dirty, &pos, &map->size)) {
+				t += 2;
+				continue;
+			}
+
 			/* 查找对应的TILE编组序号 */
 			dict = LookupTile(map->era, p);
 
 			if (!dict) {
-
-				group = 0;
-				mega = 0;
+				DMemClr(t, 2 * sizeof(LISOMTILE));
+				t += 2;
+				continue;
 			}
-			else {
 
-				group = dict->group_no;
+			group = dict->group_no;
 
-				/* 随机生成MegaTile序号 */
-				mega = GenMegaTileIndex(map->era, map->size.cx, i, dict, p, t);
+			/* 随机生成MegaTile序号 */
+			mega = GenMegaTileIndex(map->era, map->size.cx, i, dict, p, t);
+
+			if (p->up_abut && i > 0) {
+				(t - map->size.cx)->mega_index = mega;
+				(t - map->size.cx + 1)->mega_index = mega;
+			}
+
+			if (p->down_abut && i < map->size.cy) {
+				(t + map->size.cx)->mega_index = mega;
+				(t + map->size.cx + 1)->mega_index = mega;
 			}
 
 			/* 一次填充相邻的一对奇偶菱形 */
@@ -1012,6 +1076,9 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 			t++;
 		}
 	}
+
+	size = CALC_DIRTY_SIZE(&map->size);
+	DMemClr(map->dirty, size);
 
 #ifndef NDEBUG
 	t = tile;
@@ -1089,14 +1156,11 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 
 /************************************************************************/
 
-static BOOL ValidateIsoMap(CONST ISOM_MAP *map)
+static BOOL ValidateIsoMap(CONST ISOM_MAP *map, BOOL create)
 {
 	INT row, line;
 
-	if (!map || !map->isom || !DBetween(map->era, 0, L_ERA_NUM))
-		return FALSE;
-
-	if (!g_EraInfo[map->era].init_flag)
+	if (!map || !DBetween(map->era, 0, L_ERA_NUM))
 		return FALSE;
 
 	if (map->size.cx < 0 || map->size.cy < 0)
@@ -1106,6 +1170,12 @@ static BOOL ValidateIsoMap(CONST ISOM_MAP *map)
 	line = CALC_ISOM_LINE(map->size.cy);
 
 	if (row >= MAX_ROW || line >= MAX_LINE)
+		return FALSE;
+
+	if (create)
+		return TRUE;
+
+	if (!map->isom || !g_EraInfo[map->era].init_flag)
 		return FALSE;
 
 	if (!DBetween(map->def, 0, g_EraInfo[map->era].center_num))
@@ -1137,7 +1207,7 @@ static VOID CalcCornerPosition(INT from, CONST POINT *base, POINT *corner)
 			LEFT_TOP		base.x - 1	base.y - 1
 			TOP_RIGHT		base.x		base.y - 1
 			RIGHT_BOTTOM	base.x		base.y
-			BOTTOM_LEFT	base.x - 1	base.y
+			BOTTOM_LEFT		base.x - 1	base.y
 	*/
 	corner->x = IS_FROM_DIR(from, LEFT) ? base->x - 1 : base->x;
 	corner->y = IS_FROM_DIR(from, TOP) ? base->y - 1 : base->y;
@@ -1153,7 +1223,7 @@ static VOID CalcLinkPosition(INT from, CONST POINT *base, POINT *link)
 			LEFT_TOP		base.x - 1	base.y - 1
 			TOP_RIGHT		base.x + 1	base.y - 1
 			RIGHT_BOTTOM	base.x + 1	base.y + 1
-			BOTTOM_LEFT	base.x - 1	base.y + 1
+			BOTTOM_LEFT		base.x - 1	base.y + 1
 	*/
 	link->x = IS_FROM_DIR(from, LEFT) ? base->x - 1 : base->x + 1;
 	link->y = IS_FROM_DIR(from, TOP) ? base->y - 1 : base->y + 1;
@@ -1318,9 +1388,9 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 		获取连接对象的ISOM值，对应关系如下：
 			from			dir1		dir2
 			LEFT_TOP		LEFT		TOP
-			TOP_RIGHT		TOP		RIGHT
+			TOP_RIGHT		TOP			RIGHT
 			RIGHT_BOTTOM	RIGHT		BOTTOM
-			BOTTOM_LEFT	BOTTOM	LEFT
+			BOTTOM_LEFT		BOTTOM		LEFT
 	*/
 	link = tile[DIR1_OF_FROM(from)].isom;
 	DAssert(tile[DIR2_OF_FROM(from)].isom);
@@ -1395,7 +1465,7 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 		Matted地形处理。
 		首先当前画刷菱形的低层和高层地形相同意味着不是边缘，就一定不需要做Matted地形处理。
 		如果当前画刷菱形的高层是Matted地形，同时当前画刷贴近连接方向一侧的地形为低层地形，
-		则必须
+		则必须进行如下处理
 	*/
 	if (low != high) {
 		if (param->center[high].style == S_MATTED) {
@@ -1416,10 +1486,10 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	/*
 		边界特殊处理。超出边境的菱形形状强制与扩展方向上与其最近的那个菱形的形状相同。
 			from			x		x-equ		y		y-equ
-			LEFT_TOP		LEFT	BOTTOM	TOP		RIGHT
-			TOP_RIGHT		RIGHT	BOTTOM	TOP		LEFT
-			RIGHT_BOTTOM	RIGHT	TOP		BOTTOM	LEFT
-			BOTTOM_LEFT	LEFT	TOP		BOTTOM	RIGHT
+			LEFT_TOP		LEFT	BOTTOM		TOP		RIGHT
+			TOP_RIGHT		RIGHT	BOTTOM		TOP		LEFT
+			RIGHT_BOTTOM	RIGHT	TOP			BOTTOM	LEFT
+			BOTTOM_LEFT		LEFT	TOP			BOTTOM	RIGHT
 	*/
 	if (link_shape[DIR1_OF_FROM(opp)] != link_shape[DIR2_OF_FROM(opp)]) {
 		CalcCornerPosition(from, &link_pos, &corner);
@@ -1464,6 +1534,9 @@ static BOOL UpdateIsom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	coord[TOP] = &data->top;
 	coord[RIGHT] = &data->right;
 	coord[BOTTOM] = &data->bottom;
+
+	/* 标志TILE菱形为脏 */
+	SET_DIRTY(map->dirty, &corner, &map->size);
 
 	/*
 		对画刷来说也许是左上角，但对ISOM菱形来说确是左上角菱形的右下角，

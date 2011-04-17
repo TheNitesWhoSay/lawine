@@ -496,13 +496,13 @@ CAPI LHSCM LAWINE_API LScmCreate(LHTILESET ts, INT def, CONST SIZE *size)
 	return NULL;
 }
 
-CAPI LHSCM LAWINE_API LScmOpen(STRCPTR name)
+CAPI LHSCM LAWINE_API LScmOpen(STRCPTR name, BOOL for_edit)
 {
 	DScm *scm = new DScm;
 	if (!scm)
 		return NULL;
 
-	if (scm->Load(name))
+	if (scm->Load(name, for_edit))
 		return scm;
 
 	delete scm;
@@ -525,6 +525,14 @@ CAPI BOOL LAWINE_API LScmClose(LHSCM scm)
 	scm->Clear();
 	delete scm;
 	return TRUE;
+}
+
+CAPI BOOL LAWINE_API LScmEditable(LHSCM scm)
+{
+	if (!scm)
+		return FALSE;
+
+	return scm->GetEditable();
 }
 
 CAPI INT LAWINE_API LScmGetVersion(LHSCM scm)

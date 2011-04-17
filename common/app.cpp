@@ -7,7 +7,6 @@
 /************************************************************************/
 
 #include <app.hpp>
-#include <debug.h>
 
 /************************************************************************/
 
@@ -96,15 +95,11 @@ DApp::DApp() :
 	m_Core.argv = NULL;
 #endif
 	s_AppInstance = this;
-
-	InitializeDebugTimer();
 }
 
 DApp::~DApp()
 {
 	s_AppInstance = NULL;
-
-	OutputDebugTimerResult();
 }
 
 BOOL DApp::Initialize(VOID)

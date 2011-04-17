@@ -130,9 +130,10 @@ CAPI extern BOOL LAWINE_API LSmkResume(LHSMK smk);
 CAPI extern IMGCPTR LAWINE_API LSmkGetImage(LHSMK smk);
 
 CAPI extern LHSCM LAWINE_API LScmCreate(LHTILESET ts, INT def, CONST SIZE *size);
-CAPI extern LHSCM LAWINE_API LScmOpen(STRCPTR name);
+CAPI extern LHSCM LAWINE_API LScmOpen(STRCPTR name, BOOL for_edit);
 CAPI extern BOOL LAWINE_API LScmSave(LHSCM scm, STRCPTR name);
 CAPI extern BOOL LAWINE_API LScmClose(LHSCM scm);
+CAPI extern BOOL LAWINE_API LScmEditable(LHSCM scm);
 CAPI extern INT LAWINE_API LScmGetVersion(LHSCM scm);
 CAPI extern INT LAWINE_API LScmGetEra(LHSCM scm);
 CAPI extern BOOL LAWINE_API LScmGetSize(LHSCM scm, SIZE *size);

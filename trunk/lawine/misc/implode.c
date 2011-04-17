@@ -130,8 +130,8 @@ BOOL implode(INT type, INT dict, VCPTR src, UINT src_size, VPTR dest, UINT *dest
 	BUFPTR new_dict_ptr;	// Secondary offset into dictionary
 	BUFCPTR	rd_ptr;			// Current position in input buffer
 	BUFPTR wrt_ptr;			// Current position in output buffer
-	BUFCPTR src_end_ptr;	// Pointer to the end of input buffer
-	BUFPTR dest_end_ptr;	// Pointer to the end of output buffer
+	BUFCPTR src_end_ptr;	// Pointer to the end of source buffer
+	BUFPTR dest_end_ptr;	// Pointer to the end of dest buffer
 	BYTE bit_num;			// Number of bits in bit buffer
 	DWORD bit_buf;			// Stores bits until there are enough to output a byte of data
 	BUFPTR dict_ptr;		// Position in dictionary
@@ -247,7 +247,7 @@ BOOL implode(INT type, INT dict, VCPTR src, UINT src_size, VPTR dest, UINT *dest
 				if (copy_len < 2 || copy_len < max_copy_len)
 					continue;
 
-				// Calculate the new offset that will be outputted into the compressed data
+				// Store the offset that will be outputted into the compressed data
 				new_copy_off = (new_dict_ptr - (copy_ptr - cur_dict_size)) % cur_dict_size;
 
 				// If the length is equal, check for a more efficient offset
@@ -301,8 +301,9 @@ BOOL implode(INT type, INT dict, VCPTR src, UINT src_size, VPTR dest, UINT *dest
 				}
 
 				// Find bit code for the base value of the length from the table
-				for (i = 0; i < 15; i++) {
-					if (max_copy_len < s_LenBase[i + 1])
+				for (i = 0; i < 0x0F; i++) {
+
+					if (s_LenBase[i] <= max_copy_len && max_copy_len < s_LenBase[i + 1])
 						break;
 				}
 
@@ -395,8 +396,8 @@ BOOL implode(INT type, INT dict, VCPTR src, UINT src_size, VPTR dest, UINT *dest
 	}
 
 	// Store the code for the end of the compressed data stream
-	bit_buf += (1 + (s_LenCode[15] << 1)) << bit_num;
-	bit_num += 1 + s_LenBits[15];
+	bit_buf += (1 + (s_LenCode[0x0f] << 1)) << bit_num;
+	bit_num += 1 + s_LenBits[0x0f];
 
 	bit_buf += 0xff << bit_num;
 	bit_num += 8;
@@ -431,8 +432,8 @@ BOOL explode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 	BYTE dict;				// Dictionary size; valid values are 4, 5, and 6 which represent 1024, 2048, and 4096 respectively
 	BUFCPTR	rd_ptr;			// Current position in input buffer
 	BUFPTR wrt_ptr;			// Current position in output buffer
-	BUFCPTR src_end_ptr;	// Pointer to the end of input buffer
-	BUFPTR dest_end_ptr;	// Pointer to the end of output buffer
+	BUFCPTR src_end_ptr;	// Pointer to the end of source buffer
+	BUFPTR dest_end_ptr;	// Pointer to the end of dest buffer
 	BYTE bit_num;			// Number of bits in bit buffer
 	DWORD bit_buf;			// Stores bits until there are enough to output a byte of data
 	BUFPTR dict_ptr;		// Position in dictionary
@@ -517,7 +518,8 @@ BOOL explode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 			bit_num--;
 
 			// Find the base value for the copy length
-			for (i = 0; i < 16; i++) {
+			for (i = 0; i <= 0x0F; i++) {
+
 				if (TRUNCATE_VALUE(bit_buf, s_LenBits[i]) == s_LenCode[i])
 					break;
 			}
@@ -554,6 +556,7 @@ BOOL explode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 
 			// Find most significant 6 bits of offset into the dictionary
 			for (i = 0; i <= 0x3f; i++) {
+
 				if (TRUNCATE_VALUE(bit_buf, s_OffsBits[i]) == s_OffsCode[i])
 					break;
 			}

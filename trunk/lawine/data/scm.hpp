@@ -35,16 +35,34 @@ protected:
 		WORD height;
 	};
 
+	struct DD2_DATA {
+		WORD dd_no;
+		WORD x;
+		WORD y;
+		BYTE owner;
+		BYTE enable;
+	};
+
+	struct THG2_DATA {
+		WORD thg_no;
+		WORD x;
+		WORD y;
+		BYTE owner;
+		BYTE unused;
+		WORD flags;
+	};
+
 public:
 
 	DScm();
 	~DScm();
 
 	BOOL Create(CONST DTileset &ts, INT def, CONST SIZE &size);
-	BOOL Load(STRCPTR name);
+	BOOL Load(STRCPTR name, BOOL for_edit);
 	BOOL Save(STRCPTR name) CONST;
 	VOID Clear(VOID);
 
+	BOOL GetEditable(VOID) CONST;
 	INT GetVersion(VOID) CONST;
 	INT GetEra(VOID) CONST;
 	BOOL GetSize(SIZE &size) CONST;
@@ -60,12 +78,14 @@ public:
 protected:
 
 	BOOL LoadMap(VOID);
-	BOOL LoadVersion(VOID);
-	BOOL LoadEra(VOID);
-	BOOL LoadDim(VOID);
-	BOOL LoadMtxm(VOID);
-	BOOL LoadTile(VOID);
-	BOOL LoadIsom(VOID);
+	BOOL Verify(VOID);
+	BOOL ReadVersion(VOID);
+	BOOL ReadEra(VOID);
+	BOOL ReadMapSize(VOID);
+	BOOL ReadTile(VOID);
+	BOOL ReadIsoMap(VOID);
+	BOOL ReadDoodad(VOID);
+	BOOL ReadThingy(VOID);
 
 	BOOL MakeMinimap(CONST DTileset &ts);
 	VOID MakeSmallMinimap(CONST DTileset &ts, CONST SIZE &size);
@@ -75,8 +95,11 @@ protected:
 	static BOOL CheckMapSize(CONST SIZE &size);
 
 	BOOL			m_Valid;
+	BOOL			m_Edit;
 	INT				m_Version;
+	UINT			m_DdNum;
 	LTILEPTR		m_Tile;
+	LDDPTR			m_Doodad;
 	ISOM_MAP		m_IsoMap;
 	DChk			m_Chk;
 	DImage			m_Minimap;

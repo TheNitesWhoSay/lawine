@@ -52,6 +52,11 @@ protected:
 		WORD flags;
 	};
 
+	struct VCODE {
+		DWORD code[256];
+		BYTE op[16];
+	};
+
 public:
 
 	DScm();
@@ -84,7 +89,6 @@ protected:
 	BOOL ReadMapSize(VOID);
 	BOOL ReadTile(VOID);
 	BOOL ReadIsoMap(VOID);
-	BOOL ReadDoodad(VOID);
 	BOOL ReadThingy(VOID);
 
 	BOOL MakeMinimap(CONST DTileset &ts);
@@ -93,6 +97,9 @@ protected:
 	VOID MakeLargeMinimap(CONST DTileset &ts, CONST SIZE &size);
 
 	static BOOL CheckMapSize(CONST SIZE &size);
+	static DWORD CalcVerifyHash(VCODE *vcode, UINT vcode_size, VCPTR vdata, UINT vdata_size);
+
+	static CONST VCODE VERIFY_CODE;
 
 	BOOL			m_Valid;
 	BOOL			m_Edit;

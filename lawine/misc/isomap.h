@@ -29,6 +29,7 @@ typedef struct {
 	INT def;				/* 默认地形 */
 	SIZE size;				/* 地图大小 */
 	LISOMPTR isom;			/* ISOM数据 */
+	LTILEPTR tile;			/* TILE数据 */
 	VPTR dirty;				/* 脏标志位图 */
 } ISOM_MAP;
 
@@ -57,7 +58,7 @@ CAPI extern VOID ExitIsoMapEra(INT era);
 CAPI extern BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map);
 CAPI extern VOID DestroyIsoMap(ISOM_MAP *map);
 CAPI extern BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos);
-CAPI extern BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile);
+CAPI extern BOOL UpdateIsoMap(CONST ISOM_MAP *map);
 
 /************************************************************************/
 

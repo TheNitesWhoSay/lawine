@@ -178,6 +178,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\include\array.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\include\array.inl"
+				>
+			</File>
+			<File
 				RelativePath="include\common.h"
 				>
 			</File>

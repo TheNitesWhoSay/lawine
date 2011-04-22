@@ -12,6 +12,7 @@
 /************************************************************************/
 
 #include <common.h>
+#include <list>
 #include <map>
 
 /************************************************************************/
@@ -30,17 +31,25 @@ protected:
 		DWORD	offset;
 	};
 
-	typedef std::map<DWORD, SECTIONINFO>	DSectionMap;
+	typedef std::list<SECTIONINFO>			DSectionList;
+	typedef std::map<DWORD, DSectionList>	DSectionMap;
 
 public:
+
+	enum SECTION_TYPE {
+		ST_OVERRIDE,
+		ST_DUPLICATE,
+		ST_LASTONE,
+	};
 
 	DChk();
 	~DChk();
 
 	BOOL Load(STRCPTR name);
 	VOID Clear(VOID);
-	UINT GetSectionSize(DWORD fourcc);
-	BOOL GetSectionData(DWORD fourcc, VPTR buf, UINT buf_size);
+
+	UINT GetSectionSize(DWORD fourcc, SECTION_TYPE type) CONST;
+	BOOL GetSectionData(DWORD fourcc, SECTION_TYPE type, VPTR buf, UINT buf_size) CONST;
 
 protected:
 

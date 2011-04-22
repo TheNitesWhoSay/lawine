@@ -6,6 +6,7 @@
 /* Descript    : DPcx class implementation                              */
 /************************************************************************/
 
+#include <array.hpp>
 #include "pcx.hpp"
 #include "../global.hpp"
 
@@ -107,15 +108,12 @@ BOOL DPcx::Save(STRCPTR name) CONST
 	if (!m_Image.IsValid())
 		return FALSE;
 
-	UINT buf_size = m_Image.GetWidth() * m_Image.GetPitch() * 2;
-	BUFPTR buf = new BYTE[buf_size];
-	if (!buf)
+	UINT buf_size = m_Image.GetPitch() * m_Image.GetHeight() * 2;
+	DArray<BYTE> buf(buf_size);
+	if (buf.IsNull())
 		return FALSE;
 
-	BOOL ret = Encode(file, buf, buf_size);
-	delete [] buf;
-
-	return ret;
+	return Encode(file, buf, buf_size);
 }
 
 VOID DPcx::Clear(VOID)
@@ -347,7 +345,7 @@ UINT DPcx::DecodeRLE(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size)
 		src_size--;
 
 		dest_size -= len;
-		for (UINT i = 0; i < len; i++, dest++)
+		for (UINT i = 0U; i < len; i++, dest++)
 			*dest = color;
 
 	} while (src_size && dest_size);

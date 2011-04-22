@@ -6,6 +6,7 @@
 /* Descript    : DMpq class implementation                              */
 /************************************************************************/
 
+#include <array.hpp>
 #include "mpq.hpp"
 #include "../misc/implode.h"
 
@@ -186,11 +187,11 @@ HANDLE DMpq::OpenFile(STRCPTR file_name)
 BOOL DMpq::CloseFile(HANDLE file)
 {
 	for (DFileList::iterator it = m_FileList.begin(); it != m_FileList.end(); ++it) {
-		if (*it == file) {
-			DVerify((*it)->Close());
-			m_FileList.erase(it);
-			return TRUE;
-		}
+		if (*it != file)
+			continue;
+		DVerify((*it)->Close());
+		m_FileList.erase(it);
+		return TRUE;
 	}
 
 	return FALSE;
@@ -251,6 +252,9 @@ BOOL DMpq::NewFile(STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compres
 	if (!file_data && size)
 		return FALSE;
 
+	if (!m_Access || !m_Access->Writable())
+		return FALSE;
+
 	UINT block_idx;
 	DWORD key;
 	BLOCKENTRY block;
@@ -269,6 +273,52 @@ BOOL DMpq::NewFile(STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compres
 
 	m_FileList.push_back(sub);
 	return TRUE;
+}
+
+BOOL DMpq::DelFile(STRCPTR file_name)
+{
+	if (!file_name || !*file_name)
+		return FALSE;
+
+	if (!m_Access || !m_Access->Writable())
+		return FALSE;
+
+	HASHENTRY *hash = Lookup(file_name);
+	if (!hash)
+		return FALSE;
+
+	// reserve block index before delete
+	UINT block_idx = hash->block_index;
+
+	DMemSet(hash, 0xff, sizeof(HASHENTRY));
+
+	// mark as deleted
+	UINT entry = (hash - m_HashTable + 1) & (m_HashNum - 1);
+	if (m_HashTable[entry].block_index == HASH_ENTRY_EMPTY)
+		hash->block_index = HASH_ENTRY_EMPTY;
+	else
+		hash->block_index = HASH_ENTRY_INVALID;
+
+	if (block_idx >= m_BlockTable.size())
+		return TRUE;
+
+	BLOCKENTRY *block = &m_BlockTable[hash->block_index];
+
+	if (block->data_size) {
+		block->file_size = 0UL;
+		block->flags = 0UL;
+	} else {
+		DMemClr(block, sizeof(BLOCKENTRY));
+	}
+
+	// TODO: 由于目前只有Create的MPQ才能进行write操作
+	// 因此只需考虑文件布局如下的情况：
+	//		Header
+	//		File Data
+	//		Hash Table
+	//		Block Table
+	// 因此File Data的末尾也是Hash Table的开始
+	return Writeback(GetEndOfFileData());
 }
 
 UINT DMpq::GetFileSize(HANDLE file)
@@ -334,22 +384,17 @@ BOOL DMpq::SetBasePath(STRCPTR path)
 	if (!size)
 		return FALSE;
 
-	STRPTR str = new CHAR[size];
-	if (!str)
+	DArray<CHAR> str(size);
+	if (str.IsNull())
 		return FALSE;
 
-	if (DFile::GetFullPath(path, str, size) != size) {
-		delete [] str;
+	if (DFile::GetFullPath(path, str, size) != size)
 		return FALSE;
-	}
 
-	if (!DFile::IsDir(path)) {
-		delete [] str;
+	if (!DFile::IsDir(path))
 		return FALSE;
-	}
 
-	s_BashPath = str;
-	delete [] str;
+	s_BashPath.Assign(str);
 	return TRUE;
 }
 
@@ -399,8 +444,8 @@ BOOL DMpq::Create(STRCPTR mpq_name, UINT hash_num)
 	if (!m_Access->Write(&header, sizeof(header)))
 		return FALSE;
 
-	HASHENTRY *hash_table = new HASHENTRY[hash_num];
-	if (!hash_table)
+	DArray<HASHENTRY> hash_table(hash_num);
+	if (hash_table.IsNull())
 		return FALSE;
 
 	DMemCpy(hash_table, m_HashTable, hash_size);
@@ -408,9 +453,7 @@ BOOL DMpq::Create(STRCPTR mpq_name, UINT hash_num)
 	DWORD key = HashString(HASH_TABLE_KEY, HASH_FILE_KEY);
 	EncryptData(hash_table, hash_size, key);
 
-	BOOL ret = m_Access->Write(hash_table, hash_size);
-	delete [] hash_table;
-	if (!ret)
+	if (!m_Access->Write(hash_table, hash_size))
 		return FALSE;
 
 	m_HashNum = hash_num;
@@ -529,25 +572,20 @@ BOOL DMpq::AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKEN
 
 	UINT size = block.file_size;
 	UINT buf_size = 1 << (m_Access->SectorShift() + 3);
-	BUFPTR rd_buf = new BYTE[buf_size];
-	if (!rd_buf)
+	DArray<BYTE> rd_buf(buf_size);
+	if (rd_buf.IsNull())
 		return FALSE;
 
 	BOOL flag = TRUE;
-
 	for (UINT rd_size = 0; size && flag; size -= rd_size) {
-
 		rd_size = file.Read(rd_buf, buf_size);
 		if (!rd_size)
 			break;
-
 		if (sub->Write(rd_buf, rd_size) != rd_size)
 			flag = FALSE;
 	}
-
 	DAssert(flag);
 
-	delete [] rd_buf;
 	if (!flag)
 		return FALSE;
 
@@ -577,9 +615,6 @@ DMpq::HASHENTRY *DMpq::PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compre
 {
 	DAssert(file_name && *file_name);
 
-	if (!m_Access || !m_Access->Writable())
-		return NULL;
-
 	// TODO: 由于目前只有Create的MPQ才能进行write操作
 	// 因此只需考虑文件布局如下的情况：
 	//		Header
@@ -588,7 +623,7 @@ DMpq::HASHENTRY *DMpq::PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compre
 	//		Block Table
 
 	block_idx = AllocBlock(file_size, compress, encrypt, block);
-	if (block_idx >= HASH_ENTRY_INVALID)
+	if (block_idx == HASH_ENTRY_INVALID || block_idx == HASH_ENTRY_EMPTY)
 		return NULL;
 
 	HASHENTRY *hash = AllocHash(file_name);
@@ -605,11 +640,11 @@ BOOL DMpq::Writeback(DSubFile *sub, HASHENTRY *hash, UINT block_idx)
 	DWORD org_block_idx = hash->block_index;
 	hash->block_index = block_idx;
 
-	CONST BLOCKENTRY *new_block = sub->GetBlock();
-	DAssert(new_block);
-	m_BlockTable.push_back(*new_block);
+	CONST BLOCKENTRY *block = sub->GetBlock();
+	DAssert(block);
+	m_BlockTable.push_back(*block);
 
-	if (Writeback(*new_block))
+	if (Writeback(block->offset + block->data_size))
 		return TRUE;
 
 	hash->block_index = org_block_idx;
@@ -617,7 +652,7 @@ BOOL DMpq::Writeback(DSubFile *sub, HASHENTRY *hash, UINT block_idx)
 	return FALSE;
 }
 
-BOOL DMpq::Writeback(CONST BLOCKENTRY &block)
+BOOL DMpq::Writeback(UINT hash_table_offset)
 {
 	DAssert(m_Access && m_HashNum && m_HashTable && m_BlockTable.size());
 	DAssert(m_Access->Writable());
@@ -629,8 +664,8 @@ BOOL DMpq::Writeback(CONST BLOCKENTRY &block)
 	HEADER header;
 	header.identifier = MPQ_IDENTIFIER;
 	header.header_size = sizeof(header);
-	header.hash_table_offset = block.offset + block.data_size;
-	header.block_table_offset = header.hash_table_offset + hash_size;
+	header.hash_table_offset = hash_table_offset;
+	header.block_table_offset = hash_table_offset + hash_size;
 	header.archive_size = header.block_table_offset + block_size;
 	header.version = SUPPORT_VERSION;
 	header.sector_shift = SUPPORT_SECTOR_SHIFT;
@@ -647,8 +682,8 @@ BOOL DMpq::Writeback(CONST BLOCKENTRY &block)
 	if (!m_Access->Seek(header.hash_table_offset))
 		return FALSE;
 
-	HASHENTRY *hash_table = new HASHENTRY[m_HashNum];
-	if (!hash_table)
+	DArray<HASHENTRY> hash_table(m_HashNum * sizeof(HASHENTRY));
+	if (hash_table.IsNull())
 		return FALSE;
 
 	DMemCpy(hash_table, m_HashTable, hash_size);
@@ -657,7 +692,6 @@ BOOL DMpq::Writeback(CONST BLOCKENTRY &block)
 	EncryptData(hash_table, hash_size, key);
 
 	BOOL ret = m_Access->Write(hash_table, hash_size);
-	delete [] hash_table;
 	if (!ret)
 		return FALSE;
 
@@ -665,8 +699,8 @@ BOOL DMpq::Writeback(CONST BLOCKENTRY &block)
 	if (!m_Access->Seek(header.block_table_offset))
 		return FALSE;
 
-	BLOCKENTRY *block_table = new BLOCKENTRY[m_BlockTable.size()];
-	if (!block_table)
+	DArray<BLOCKENTRY> block_table(m_BlockTable.size());
+	if (block_table.IsNull())
 		return FALSE;
 
 	DMemCpy(block_table, &m_BlockTable.front(), block_size);
@@ -675,7 +709,6 @@ BOOL DMpq::Writeback(CONST BLOCKENTRY &block)
 	EncryptData(block_table, block_size, key);
 
 	ret = m_Access->Write(block_table, block_size);
-	delete [] block_table;
 	if (!ret)
 		return FALSE;
 
@@ -779,6 +812,22 @@ UINT DMpq::AllocBlock(UINT file_size, BOOL compress, BOOL encrypt, BLOCKENTRY &b
 	// 难点在于合并几个相邻的小块来凑空间
 	// 以及如果最后一个块是被删除了话的则再小也够，但优先用前面的删除块
 
+	block.data_size = 0UL;
+	block.file_size = file_size;
+	block.flags = BLOCK_EXIST | BLOCK_FIX_KEY;
+	block.offset = GetEndOfFileData();
+
+	if (compress)
+		block.flags |= BLOCK_COMPRESS;
+
+	if (encrypt)
+		block.flags |= BLOCK_ENCRYPT;
+
+	return m_BlockTable.size();
+}
+
+UINT DMpq::GetEndOfFileData(VOID)
+{
 	// 寻找文件数据的末尾
 	UINT offset = sizeof(HEADER);
 	for (UINT i = 0U; i < m_BlockTable.size(); i++) {
@@ -789,18 +838,7 @@ UINT DMpq::AllocBlock(UINT file_size, BOOL compress, BOOL encrypt, BLOCKENTRY &b
 			offset = end_pos;
 	}
 
-	block.data_size = 0UL;
-	block.file_size = file_size;
-	block.flags = BLOCK_EXIST | BLOCK_FIX_KEY;
-	block.offset = offset;
-
-	if (compress)
-		block.flags |= BLOCK_COMPRESS;
-
-	if (encrypt)
-		block.flags |= BLOCK_ENCRYPT;
-
-	return m_BlockTable.size();
+	return offset;
 }
 
 DWORD DMpq::CalcFileKey(STRCPTR path_name, CONST BLOCKENTRY &block)
@@ -1030,12 +1068,9 @@ VOID DMpq::DAccess::SetBuffer(UINT block_idx, DFileBuffer *buf)
 	if (it != m_BufferMap.end()) {
 		if (it->second == buf)
 			return;
-
 		delete it->second;
 		it->second = buf;
-	}
-	else {
-
+	} else {
 		m_BufferMap[block_idx] = buf;
 	}
 }
@@ -1302,11 +1337,9 @@ UINT DMpq::DSubFile::Write(VCPTR data, UINT size)
 	BUFCPTR sector_data = static_cast<BUFCPTR>(data);
 
 	for (UINT i = sector_beg; i <= sector_end; i++) {
-
 		UINT data_size;
 		if (!m_FileBuffer->SetSector(i, sector_data, size, data_size))
 			break;
-
 		sector_data += data_size;
 		size -= data_size;
 		wrt_size += data_size;
@@ -1393,22 +1426,16 @@ BOOL DMpq::DFileBuffer::Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD 
 	UINT sector_num = (block.file_size + (1 << sector_shift) - 1) >> sector_shift;
 
 	if (sector_num) {
-
 		if (!archive->Seek(block.offset))
 			return FALSE;
-
 		if (block.flags & BLOCK_COMP_MASK) {
-
 			m_OffTable = new DWORD[sector_num + 1];
 			if (!m_OffTable)
 				return FALSE;
 		}
-
 		m_Block = block;
 		m_Key = key;
-	}
-	else {
-
+	} else {
 		m_Block.file_size = 0;
 		m_Block.data_size = 0;
 		m_Block.flags = BLOCK_EXIST;
@@ -1518,9 +1545,7 @@ BUFCPTR DMpq::DFileBuffer::GetSector(UINT sector, UINT &size)
 	DAssert(DBetween(m_CurCache, 0, MAX_CACHE_SECTOR));
 
 	CACHESECTOR *cs = &m_Cache[m_CurCache];
-	if (cs->data)
-		delete [] cs->data;
-
+	delete [] cs->data;
 	cs->sector = sector;
 	cs->size = size;
 	cs->data = data;
@@ -1573,21 +1598,14 @@ BOOL DMpq::DFileBuffer::SetSector(UINT sector, BUFCPTR buf, UINT buf_size, UINT 
 
 	// 必要时加密
 	if (m_Block.flags & BLOCK_ENCRYPT) {
-
-		DWORD *off_table = new DWORD[m_SectorNum + 1];
-		if (!off_table)
+		DArray<DWORD> off_table(m_SectorNum + 1);
+		if (off_table.IsNull())
 			return FALSE;
-
 		DMemCpy(off_table, m_OffTable, tab_size);
 		EncryptData(off_table, tab_size, m_Key - 1);
-
-		BOOL ret = m_Access->Write(off_table, tab_size);
-		delete [] off_table;
-		if (!ret)
+		if (!m_Access->Write(off_table, tab_size))
 			return FALSE;
-	}
-	else {
-
+	} else {
 		if (!m_Access->Write(m_OffTable, tab_size))
 			return FALSE;
 	}
@@ -1642,32 +1660,22 @@ BOOL DMpq::DFileBuffer::ReadSector(UINT sector, BUFPTR buf, UINT size)
 		UINT data_size = m_OffTable[sector + 1] - offset;
 
 		if (data_size >= size) {
-
 			if (!m_Access->Read(buf, size))
 				return FALSE;
-
 			if (m_Block.flags & BLOCK_ENCRYPT)
 				DecryptData(buf, size, m_Key + sector);
-
 		} else {
-
-			BUFPTR data = new BYTE[data_size];
-			if (!data)
+			DArray<BYTE> data(data_size);
+			if (data.IsNull())
 				return FALSE;
-
-			if (!m_Access->Read(data, data_size)) {
-				delete [] data;
+			if (!m_Access->Read(data, data_size))
 				return FALSE;
-			}
-
 			if (m_Block.flags & BLOCK_ENCRYPT)
 				DecryptData(data, data_size, m_Key + sector);
-
-			BOOL ret = Decompress(sector, data, data_size, buf, size);
-			delete [] data;
-			if (!ret)
+			if (!Decompress(sector, data, data_size, buf, size))
 				return FALSE;
 		}
+
 	} else {
 
 		UINT offset = m_Block.offset + (sector << SectorShift());
@@ -1704,51 +1712,39 @@ BOOL DMpq::DFileBuffer::WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &d
 		data_size = 1 << SectorShift();
 
 		if (Compress(sector, buf, size, sector_buf, data_size) && data_size < size) {
-
 			DAssert(data_size);
-
 			if (m_Block.flags & BLOCK_ENCRYPT)
 				EncryptData(sector_buf, data_size, m_Key + sector);
-
 			if (!m_Access->Write(sector_buf, data_size))
 				return FALSE;
-		}
-		else {
-
+		} else {
 			if (m_Block.flags & BLOCK_ENCRYPT) {
 				DMemCpy(sector_buf, buf, size);
 				EncryptData(sector_buf, size, m_Key + sector);
 				if (!m_Access->Write(sector_buf, size))
 					return FALSE;
-			}
-			else {
+			} else {
 				if (!m_Access->Write(buf, size))
 					return FALSE;
 			}
-
 			data_size = size;
 		}
-	}
-	else {
+
+	} else {
 
 		UINT offset = m_Block.offset + (sector << SectorShift());
 		if (!m_Access->Seek(offset))
 			return FALSE;
 
 		if (m_Block.flags & BLOCK_ENCRYPT) {
-
 			BUFPTR sector_buf = m_Access->SectorBuffer();
 			if (!sector_buf)
 				return FALSE;
-
 			DMemCpy(sector_buf, buf, size);
 			EncryptData(sector_buf, size, m_Key + sector);
-
 			if (!m_Access->Write(sector_buf, size))
 				return FALSE;
-		}
-		else {
-
+		} else {
 			if (!m_Access->Write(buf, size))
 				return FALSE;
 		}

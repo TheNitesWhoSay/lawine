@@ -14,25 +14,25 @@
 	1. ISOM值(isom)			地图文件ISOM段的数值。
 	2. ISOM菱形				8个相等的ISOM值围成的菱形。
 							它可以分成4个正交的角落菱形。
-	3. 角落菱形(corner)	每个ISOM菱形在左上右下四个角落上的小菱形。边缘形状处理时很重要。
+	3. 角落菱形(corner)		每个ISOM菱形在左上右下四个角落上的小菱形。边缘形状处理时很重要。
 	4. TILE菱形				从地图的最左侧开始，每两个TILE组成一个长方形。
 							每个这样的一个长方形都对应到一个菱形数据结构LISOMTILE。
 							这样的一个菱形就叫做TILE菱形。有时也把这种长方形简称为TILE菱形。
 	5. 画刷(brush)			对应L_BRUSH_XXX枚举，代表着地形画刷的类型。
 							每个画刷都与一种地形相对应。
 							画刷的ID与其对应中央地形的索引是相等的。
-	6. 画刷菱形			画刷占据的ISOM菱形。
+	6. 画刷菱形				画刷占据的ISOM菱形。
 							直观的说它就是staredit中显示画刷位置的那个菱形。
 	7. 地形(terrian)		画刷直接对应的地形，如Dirt、Water等等。
-	8. 中央地形(center)	其ISOM菱形的各角落都为单一地形。
+	8. 中央地形(center)		其ISOM菱形的各角落都为单一地形。
 							显然在同一个ERA里，它的数目和地形数目相同。
 							由于画刷、地形、中央地形是一一对应的，有时候不区分它们。
 	9. 边缘地形(edge)		两种不同地形的交界处。
 							其ISOM菱形的角落地形存在两个值。
 	10.边缘形状(shape)		边缘地形的4个角落菱形的组合方式。共计14种。
-	11.水平邻接(h-abut)	每个TILE在XY平面上左上右下四方向上的邻接关系。
+	11.水平邻接(h-abut)		每个TILE在XY平面上左上右下四方向上的邻接关系。
 							其ID格式同CV5的left_abut、top_abut、right_abut和bottom_abut。
-	12.垂直邻接(v-abut)	每个TILE在Z轴上的上下方邻接关系。
+	12.垂直邻接(v-abut)		每个TILE在Z轴上的上下方邻接关系。
 							其ID格式同CV5的up_abut、down_abut，直接对应V_ABUT_XXX。
 	13.连接(link)			如果两种地形可以组合成边缘，则称它们是可连接的。
 							连接带有方向性，连接的两端必然有一个在上层，另一个在下层。
@@ -45,14 +45,14 @@
 							当该种地形覆盖在下层地形上时，在LHHH和HHLH形状上，
 							它在横向上比非扩散型地形多占用一部分面积（体现在水平邻接关系上），
 							因此该种地形看起来比非扩散型地形更胖些。
-	18.方砖型地形(tile)	方砖型地形必然是覆盖型地形。
+	18.方砖型地形(tile)		方砖型地形必然是覆盖型地形。
 							该类地形覆盖下层地形时通常像方砖一样铺在上面。
 							如Asphalt、Plating等。
-	19.台阶型地形(step)	Installation特有的一种地形，只有Substructure、Floor和Roof这三种地形。
+	19.台阶型地形(step)		Installation特有的一种地形，只有Substructure、Floor和Roof这三种地形。
 							它们都是分层型地形。
 							该种地形的悬崖都是垂直的平台，但并不是所有的垂直平台都是台阶型地形，
 							比如Temple就不是。
-	20.屋顶型地形(roof)	仅Roof为该类型地形。
+	20.屋顶型地形(roof)		仅Roof为该类型地形。
 							它在生成垂直邻接关系的算法上有点特殊，与所有其他地形都不同。
 	21.悬崖(cliff)			两种分层型地形（即非覆盖型地形）的边缘处会形成悬崖。
 							而分层型地形与覆盖型地形、覆盖型地形与覆盖型地形的边缘则不会。
@@ -61,13 +61,10 @@
 	23.TILE位置(position)	表明是TILE菱形的上下左右的哪个角的常数。
 							其中奇菱形和偶菱形是有区别的。
 
+	注：该源文件未考虑多线程同步问题。
 */
 
 /************************************************************************/
-
-/* 每幅地图的ISOM菱形最大行列数 */
-#define MAX_LINE			CALC_ISOM_LINE(MAX_ISOM_MAP_LINE)
-#define MAX_ROW				CALC_ISOM_ROW(MAX_ISOM_MAP_ROW)
 
 /* 垂直邻接ID常数 */
 #define V_ABUT_NONE			0			/* 无 */
@@ -82,13 +79,13 @@
 #define MAX_EDGE			12			/* 最大边缘地形种类数（Jungle/Desert/Ice/Twilight） */
 #define MAX_LINK			6			/* 单方向最大连接数（Platform:Platform） */
 
-#define MAX_SHAPE_ID		16			/* 边缘形状索引最大值 */
-#define MAX_CENTER_ISOM		0x0e		/* 中央地形的最大ISOM值（Platform:Dark Platform） */
+#define MAX_SHAPE_ID		16			/* 边缘形状索引最大值 + 1 */
+#define MAX_CENTER_ISOM		0x0f		/* 中央地形的最大ISOM值（Platform:Dark Platform） + 1 */
 
-#define CENTER_FLAG			0x00		// 0x0#表示直接使用低层地形的TILE边界ID
-#define DIFFUSE_FLAG		0x10		// 0x1#表示如果是扩散地形，使用高层地形的TILE边界ID，否则使用SIDE_MASK相应的值
-#define CLIFF_FLAG			0x20		// 0x2#表示如果是悬崖地形，使用对应悬崖的TILE边界ID，否则使用低层地形的TILE边界ID
-#define SIDE_FLAG			0x30		// 0x3#表示直接使用该常数（它实际代表了边缘的8个方向）
+#define CENTER_FLAG			0x00		/* 0x0#表示直接使用低层地形的TILE边界ID */
+#define DIFFUSE_FLAG		0x10		/* 0x1#表示如果是扩散地形，使用高层地形的TILE边界ID，否则使用SIDE_MASK相应的值 */
+#define CLIFF_FLAG			0x20		/* 0x2#表示如果是悬崖地形，使用对应悬崖的TILE边界ID，否则使用低层地形的TILE边界ID */
+#define SIDE_FLAG			0x30		/* 0x3#表示直接使用该常数（它实际代表了边缘的8个方向） */
 #define MAP_FLAG_MASK		0xf0
 
 /************************************************************************/
@@ -489,6 +486,8 @@ enum TYPE_MAP {
 	AS_HIGH,								/* 与高层地形的TILE类型相同 */
 };
 
+/************************************************************************/
+
 /* 边缘形状相关参数结构体 */
 struct SHAPE_PARAM {
 	INT		order[DIR_NUM];					/* 4个角落菱形各自地势的高低 */
@@ -588,7 +587,7 @@ static BOOL g_InitFlag;
 static UINT g_TileDictNum[L_ERA_NUM];
 static ISOM_DICT *g_TileDict[L_ERA_NUM];
 static struct ERA_INFO g_EraInfo[L_ERA_NUM];
-static INT g_Isom2Center[L_ERA_NUM][MAX_CENTER_ISOM + 1];
+static INT g_Isom2Center[L_ERA_NUM][MAX_CENTER_ISOM];
 static INT g_Shape2Index[MAX_SHAPE_ID];
 static struct POS_QUENE g_PosQueneHead;
 static struct POS_QUENE *g_PosQueneTail;
@@ -617,6 +616,8 @@ static INT SearchBrushLink(INT era, INT brush_from, INT brush_to);
 
 /* TILE映射相关函数 */
 static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile);
+static VOID AdjustDirtyMap(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom);
+static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom);
 static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CONST POINT *pos, ISOM_TILE *tile);
 static CONST ISOM_DICT *LookupTile(INT era, CONST ISOM_TILE *tile);
 static INT GenMegaTileIndex(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, CONST ISOM_TILE *isom, LTILECPTR tile);
@@ -744,7 +745,7 @@ BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
 		if (param->center[center].type > info->max_center_type)
 			info->max_center_type = param->center[center].type;
 
-		DAssert(isom <= MAX_CENTER_ISOM);
+		DAssert(isom < MAX_CENTER_ISOM);
 
 		/* 填充ISOM值到中央地形类型的查找表 */
 		g_Isom2Center[era][isom] = center;
@@ -760,8 +761,8 @@ BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
 		if (!param->edge[edge].low || !param->edge[edge].high)
 			break;
 
-		DAssert(param->edge[edge].low <= MAX_CENTER_ISOM);
-		DAssert(param->edge[edge].high <= MAX_CENTER_ISOM);
+		DAssert(param->edge[edge].low < MAX_CENTER_ISOM);
+		DAssert(param->edge[edge].high < MAX_CENTER_ISOM);
 
 		/* 确定低层地形和高层地形的地形索引 */
 		low = g_Isom2Center[era][param->edge[edge].low];
@@ -809,7 +810,7 @@ BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
 			if (param->edge[edge].low == isom) {
 
 				DAssert(info->center[center].above_num <= MAX_LINK);
-				DAssert(param->edge[edge].high <= MAX_CENTER_ISOM);
+				DAssert(param->edge[edge].high < MAX_CENTER_ISOM);
 				high = g_Isom2Center[era][param->edge[edge].high];
 				DAssert(high >= 0);
 				info->center[center].above[info->center[center].above_num] = high;
@@ -822,7 +823,7 @@ BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
 			/* 如果是下方的连接（最多一个） */
 			if (param->edge[edge].high == isom) {
 
-				DAssert(param->edge[edge].low <= MAX_CENTER_ISOM);
+				DAssert(param->edge[edge].low < MAX_CENTER_ISOM);
 				low = g_Isom2Center[era][param->edge[edge].low];
 				DAssert(low >= 0);
 				info->center[center].below = low;
@@ -860,11 +861,16 @@ VOID ExitIsoMapEra(INT era)
 
 BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 {
-	INT i, j, row, line;
+	INT i, j, row, line, center;
 	UINT size;
+	WORD group, mega;
 	VPTR dirty;
 	LISOMPTR data;
+	LTILEPTR tile;
 	LISOMCOORD isom;
+	ISOM_TILE index;
+	CONST ISOM_DICT *dict;
+	CONST struct ERA_PARAM *param;
 
 	/* 如未初始化则失败 */
 	if (!g_InitFlag)
@@ -877,14 +883,29 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 	row = CALC_ISOM_ROW(map->size.cx);
 	line = CALC_ISOM_LINE(map->size.cy);
 
-	data = DAlloc(row * line * sizeof(LISOMTILE));
+	size = row * line * sizeof(LISOMTILE);
+	data = DAlloc(size);
 	if (!data)
 		return FALSE;
+
+	/* ISOM初始化 */
+	DMemClr(data, size);
+
+	size = map->size.cx * map->size.cy * sizeof(LTILEIDX);
+	tile = DAlloc(size);
+	if (!tile) {
+		DFree(data);
+		return FALSE;
+	}
+
+	/* TILE初始化 */
+	DMemClr(tile, size);
 
 	size = CALC_DIRTY_SIZE(&map->size);
 	dirty = DAlloc(size);
 	if (!dirty) {
 		DFree(data);
+		DFree(tile);
 		return FALSE;
 	}
 
@@ -892,11 +913,14 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 	DMemClr(dirty, size);
 
 	map->isom = data;
+	map->tile = tile;
 	map->dirty = dirty;
 
 	/* 仅仅是初始化结构体而不是新建地图的话到此为止 */
 	if (!new_map)
 		return TRUE;
+
+	param = &PARAM_TABLE[map->era];
 
 	/* 填充结构设置 */
 	isom.pos = 0;
@@ -913,6 +937,33 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 		}
 	}
 
+	center = Isom2Center(map->era, isom.isom);
+
+	index.type = param->center[center].type;
+	index.left_abut = param->center[center].abut;
+	index.top_abut = param->center[center].abut;
+	index.right_abut = param->center[center].abut;
+	index.bottom_abut = param->center[center].abut;
+	index.up_abut = V_ABUT_NONE;
+	index.down_abut = V_ABUT_NONE;
+
+	dict = LookupTile(map->era, &index);
+	DAssert(dict && dict->group_no);
+
+	/* 以初始值填充每个TILE */
+	for (i = 0; i < map->size.cy; i++) {
+		for (j = 0; j < map->size.cx; j += 2) {
+			group = dict->group_no;
+			mega = GenMegaTileIndex(map->era, map->size.cx, i, dict, &index, tile);
+			tile->mega_index = mega;
+			tile->group_no = group++;
+			tile++;
+			tile->mega_index = mega;
+			tile->group_no = group;
+			tile++;
+		}
+	}
+
 	/* 成功返回 */
 	return TRUE;
 }
@@ -923,6 +974,9 @@ VOID DestroyIsoMap(ISOM_MAP *map)
 		return;
 
 	DFree(map->isom);
+	map->isom = NULL;
+
+	DFree(map->tile);
 	map->isom = NULL;
 
 	DFree(map->dirty);
@@ -969,34 +1023,29 @@ BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
 	return IsometricBrush(map, brush, &pos);
 }
 
-BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
+BOOL UpdateIsoMap(CONST ISOM_MAP *map)
 {
 #ifndef NDEBUG
 	FILE *fp;
+	LTILEPTR tile;
 #endif
-	INT i, j, row, line, size;
-	WORD group, mega;
+	INT row, line, size;
 	POINT pos;
-	LTILEPTR t;
-	ISOM_TILE *isom, *p;
-	CONST ISOM_DICT *dict;
+	ISOM_TILE *isom;
 
 	/* 如未初始化则失败 */
 	if (!g_InitFlag)
 		return FALSE;
 
 	/* 参数有效性检查 */
-	if (!ValidateIsoMap(map, FALSE) || !tile)
+	if (!ValidateIsoMap(map, FALSE))
 		return FALSE;
 
 	/* ISOM行列数计算 */
 	row = CALC_ISOM_ROW(map->size.cx);
 	line = CALC_ISOM_LINE(map->size.cy);
 
-	/* 行列数有效性检查 */
-	if (row >= MAX_ROW || line >= MAX_LINE)
-		return FALSE;
-
+	/* TILE映射表内存分配 */
 	size = line * row * sizeof(ISOM_TILE);
 	isom = DAlloc(size);
 	DMemClr(isom, size);
@@ -1008,80 +1057,22 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 	}
 
 	/* 根据TILE映射表重新调整脏标志位图 */
-	for (i = 0; i < line; i++) {
-		for (j = 0; j < row; j++) {
-			pos.x = j;
-			pos.y = i;
-			if (!GET_DIRTY(map->dirty, &pos, &map->size))
-				continue;
-			while (LOC_MAP_POS(isom, &pos, &map->size)->up_abut && --pos.y >= 0)
-				SET_DIRTY(map->dirty, &pos, &map->size);
-			pos.x = j;
-			pos.y = i;
-			while (LOC_MAP_POS(isom, &pos, &map->size)->down_abut && ++pos.y < line)
-				SET_DIRTY(map->dirty, &pos, &map->size);
-		}
+	for (pos.y = 0; pos.y < line; pos.y++) {
+		for (pos.x = 0; pos.x < row; pos.x++)
+			AdjustDirtyMap(map, &pos, isom);
 	}
 
 	/* 由于下面要用到随机数，因此在此初始化 */
 	DRandSeed((UINT)DTime());
 
 	/* 修正上面生成的映射表的TILE类型，再查表找到实际对应的TILE */
-	/* 逐行循环 */
-	for (p = isom, t = tile, i = 0, pos.y = 0; pos.y < line; pos.y++, i++) {
-
-		/* 逐列循环 */
-		for (j = 0, pos.x = 0; pos.x < row; pos.x++, p++, j += 2) {
-
-			/* 出界则忽略 */
-			if (j >= map->size.cx || i >= map->size.cy)
-				continue;
-
-			/* 仅处理脏菱形 */
-			if (!GET_DIRTY(map->dirty, &pos, &map->size)) {
-				t += 2;
-				continue;
-			}
-
-			/* 查找对应的TILE编组序号 */
-			dict = LookupTile(map->era, p);
-
-			if (!dict) {
-				DMemClr(t, 2 * sizeof(LISOMTILE));
-				t += 2;
-				continue;
-			}
-
-			group = dict->group_no;
-
-			/* 随机生成MegaTile序号 */
-			mega = GenMegaTileIndex(map->era, map->size.cx, i, dict, p, t);
-
-			if (p->up_abut && i > 0) {
-				(t - map->size.cx)->mega_index = mega;
-				(t - map->size.cx + 1)->mega_index = mega;
-			}
-
-			if (p->down_abut && i < map->size.cy) {
-				(t + map->size.cx)->mega_index = mega;
-				(t + map->size.cx + 1)->mega_index = mega;
-			}
-
-			/* 一次填充相邻的一对奇偶菱形 */
-			t->mega_index = mega;
-			t->group_no = group ? group++ : 0;
-			t++;
-			t->mega_index = mega;
-			t->group_no = group;
-			t++;
-		}
+	for (pos.y = 0; pos.y < line; pos.y++) {
+		for (pos.x = 0; pos.x < row; pos.x++)
+			UpdateTile(map, &pos, isom);
 	}
 
-	size = CALC_DIRTY_SIZE(&map->size);
-	DMemClr(map->dirty, size);
-
 #ifndef NDEBUG
-	t = tile;
+	tile = map->tile;
 	fp = fopen("isom\\temp.cv5.txt", "w");
 	if (fp) {
 		for (pos.y = 0; pos.y < line; pos.y++) {
@@ -1126,7 +1117,7 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 				fprintf(fp, "\t\t\t");
 			fputc('\n', fp);
 			for (pos.x = 0; pos.x < row; pos.x++)
-				fprintf(fp, "\t%04X\t\t", t[pos.y*map->size.cx+pos.x*2].group_no);
+				fprintf(fp, "\t%04X\t\t", tile[pos.y*map->size.cx+pos.x*2].group_no);
 			fputc('\n', fp);
 			for (pos.x = 0; pos.x < row; pos.x++)
 				fprintf(fp, "\t\t\t");
@@ -1150,7 +1141,12 @@ BOOL GenIsoMapTile(CONST ISOM_MAP *map, LTILEPTR tile)
 		fclose(fp);
 	}
 #endif
+
 	DFree(isom);
+
+	size = CALC_DIRTY_SIZE(&map->size);
+	DMemClr(map->dirty, size);
+
 	return TRUE;
 }
 
@@ -1163,19 +1159,19 @@ static BOOL ValidateIsoMap(CONST ISOM_MAP *map, BOOL create)
 	if (!map || !DBetween(map->era, 0, L_ERA_NUM))
 		return FALSE;
 
-	if (map->size.cx < 0 || map->size.cy < 0)
+	if (map->size.cx < 0 || map->size.cx > MAX_ISOM_MAP_ROW)
+		return FALSE;
+
+	if (map->size.cy < 0 || map->size.cy > MAX_ISOM_MAP_LINE)
 		return FALSE;
 
 	row = CALC_ISOM_ROW(map->size.cx);
 	line = CALC_ISOM_LINE(map->size.cy);
 
-	if (row >= MAX_ROW || line >= MAX_LINE)
-		return FALSE;
-
 	if (create)
 		return TRUE;
 
-	if (!map->isom || !g_EraInfo[map->era].init_flag)
+	if (!map->isom || !map->tile || !g_EraInfo[map->era].init_flag)
 		return FALSE;
 
 	if (!DBetween(map->def, 0, g_EraInfo[map->era].center_num))
@@ -1256,7 +1252,7 @@ static INT Isom2Center(INT era, WORD isom)
 	if (isom >= PARAM_TABLE[era].edge_start)
 		return -1;
 
-	if (isom > MAX_CENTER_ISOM)
+	if (isom >= MAX_CENTER_ISOM)
 		return -1;
 
 	center = g_Isom2Center[era][isom];
@@ -1719,9 +1715,6 @@ static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 	DVarClr(tile_map);
 
 	param = &PARAM_TABLE[map->era];
-	info = &g_EraInfo[map->era];
-
-	DAssert(info->init_flag);
 
 	/*
 		获得该位置画刷菱形的ISOM值。
@@ -1752,6 +1745,9 @@ static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 		if (!Isom2EdgeShape(map->era, isom, &edge, &shape))
 			return FALSE;
 
+		info = &g_EraInfo[map->era];
+		DAssert(info->init_flag);
+
 		low = info->edge[edge].low;
 		high = info->edge[edge].high;
 
@@ -1777,16 +1773,81 @@ static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 	return TRUE;
 }
 
+static VOID AdjustDirtyMap(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom)
+{
+	POINT coord;
+
+	DAssert(map && pos && isom);
+
+	if (!GET_DIRTY(map->dirty, pos, &map->size))
+		return;
+
+	coord = *pos;
+	while (LOC_MAP_POS(isom, &coord, &map->size)->up_abut && --coord.y >= 0)
+		SET_DIRTY(map->dirty, &coord, &map->size);
+
+	coord = *pos;
+	while (LOC_MAP_POS(isom, &coord, &map->size)->down_abut && ++coord.y < CALC_ISOM_LINE(map->size.cy))
+		SET_DIRTY(map->dirty, &coord, &map->size);
+}
+
+static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom)
+{
+	WORD group, mega;
+	LTILEPTR tile;
+	CONST ISOM_DICT *dict;
+
+	DAssert(map && isom && pos);
+	DAssert(DBetween(pos->x, 0, CALC_ISOM_ROW(map->size.cx)) && DBetween(pos->y, 0, CALC_ISOM_LINE(map->size.cy)));
+
+	/* 出界则不处理 */
+	if (pos->x * 2 >= map->size.cx || pos->y >= map->size.cy)
+		return;
+
+	/* 仅处理脏菱形 */
+	if (!GET_DIRTY(map->dirty, pos, &map->size))
+		return;
+
+	isom = LOC_MAP_POS(isom, pos, &map->size);
+	tile = map->tile + pos->x * 2 + map->size.cx * pos->y;
+
+	/* 查找对应的TILE编组序号 */
+	dict = LookupTile(map->era, isom);
+
+	if (!dict || !dict->group_no) {
+		DAssert(FALSE);
+//		DMemClr(tile, 2 * sizeof(LISOMTILE));
+		return;
+	}
+
+	/* 随机生成MegaTile序号 */
+	mega = GenMegaTileIndex(map->era, map->size.cx, pos->y, dict, isom, tile);
+
+	group = dict->group_no;
+
+	/* 一次填充相邻的一对奇偶菱形 */
+	tile->mega_index = mega;
+	tile->group_no = group;
+
+	group++;
+	tile++;
+
+	tile->mega_index = mega;
+	tile->group_no = group;
+}
+
 static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CONST POINT *pos, ISOM_TILE *tile)
 {
-	INT from, opp;
+	INT from, opp, max_center_type;
 	POINT corner;
-	ISOM_TILE *isom;
 	WORD *h_abut;
 	WORD *v_abut;
+	ISOM_TILE *isom;
 
 	DAssert(map && tile_map && pos && tile);
 	DAssert(CheckPosition(map, pos));
+
+	max_center_type = g_EraInfo[map->era].max_center_type;
 
 	for_each_from (from) {
 
@@ -1798,9 +1859,8 @@ static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CO
 
 		isom = LOC_MAP_POS(tile, &corner, &map->size);
 
-		// TODO:
-		if (tile_map->type[from] > g_EraInfo[map->era].max_center_type ||
-			isom->type <= g_EraInfo[map->era].max_center_type)
+		/* 源地形如果是边缘地形也一定会覆盖目标，目标地形如果是中央地形也一定被源地形覆盖 */
+		if (tile_map->type[from] > max_center_type || isom->type <= max_center_type)
 			isom->type = tile_map->type[from];
 
 		/*

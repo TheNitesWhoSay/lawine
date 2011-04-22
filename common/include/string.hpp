@@ -20,7 +20,7 @@ class DString {
 
 protected:
 
-	typedef std::string	Core_String;
+	typedef std::string	CoreString;
 
 public:
 
@@ -88,9 +88,9 @@ public:
 
 protected:
 
-	DString(CONST Core_String &cs);
+	DString(CONST CoreString &cs);
 
-	Core_String	m_String;
+	CoreString	m_String;
 
 };
 

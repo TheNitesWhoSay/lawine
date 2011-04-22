@@ -16,9 +16,10 @@
 /************************************************************************/
 
 #define L_SCM_VER_UNKNOWN		-1
-#define L_SCM_VER_STARCRAFT		0
-#define L_SCM_VER_HYBRID		1
-#define L_SCM_VER_BROODWAR		2
+#define L_SCM_VER_BETA			0
+#define L_SCM_VER_STARCRAFT		1
+#define L_SCM_VER_HYBRID		2
+#define L_SCM_VER_BROODWAR		3
 
 #define L_ERA_ERROR				-1
 #define L_ERA_BADLANDS			0

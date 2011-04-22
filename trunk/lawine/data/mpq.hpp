@@ -65,7 +65,7 @@ public:
 	DMpq();
 	~DMpq();
 
-	BOOL CreateArchive(STRCPTR mpq_name, UINT &max_hash_num);
+	BOOL CreateArchive(STRCPTR mpq_name, UINT &hash_num);
 	BOOL OpenArchive(STRCPTR mpq_name);
 	BOOL CloseArchive(VOID);
 
@@ -77,6 +77,7 @@ public:
 
 	BOOL AddFile(STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt);
 	BOOL NewFile(STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compress, BOOL encrypt);
+	BOOL DelFile(STRCPTR file_name);
 
 	static UINT GetFileSize(HANDLE file);
 	static UINT ReadFile(HANDLE file, VPTR data, UINT size);
@@ -110,10 +111,11 @@ protected:
 	BOOL NewFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BUFCPTR file_data);
 	HASHENTRY *PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compress, BOOL encrypt, UINT &block_idx, BLOCKENTRY &block, DWORD &key);
 	BOOL Writeback(DSubFile *sub, HASHENTRY *hash, UINT block_idx);
-	BOOL Writeback(CONST BLOCKENTRY &block);
+	BOOL Writeback(UINT hash_table_offset);
 	HASHENTRY *Lookup(STRCPTR file_name);
 	HASHENTRY *AllocHash(STRCPTR file_name);
 	UINT AllocBlock(UINT file_size, BOOL compress, BOOL encrypt, BLOCKENTRY &block);
+	UINT GetEndOfFileData(VOID);
 
 	static DWORD CalcFileKey(STRCPTR path_name, CONST BLOCKENTRY &block);
 	static DWORD HashString(STRCPTR str, INT hash_type);

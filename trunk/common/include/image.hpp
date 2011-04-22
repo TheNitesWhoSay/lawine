@@ -65,7 +65,7 @@ protected:
 
 private:
 
-	DImage(CONST DImage &img);
+	explicit DImage(CONST DImage &img);
 	DImage &operator = (CONST DImage &img);
 
 };

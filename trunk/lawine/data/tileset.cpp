@@ -108,6 +108,8 @@ BOOL DTileset::Load(INT era, BOOL no_cycling)
 	DString nstr(ERA_PATH[era]);
 	nstr.Format("isom\\%s.txt", (STRCPTR)nstr.Middle(8));
 	FILE *fp = fopen(nstr, "w");
+	if (!fp)
+		return TRUE;
 #if 1
 	for (int i = 0; i < 1024; i += 2) {
 		CV5_TILE *p = &m_Cv5Tile[i];
@@ -212,6 +214,19 @@ BOOL DTileset::Load(INT era, BOOL no_cycling)
 //	fclose(fp);
 #endif
 
+#if 0
+	for (int i = 0; i < m_Vf4Num; i++) {
+		DImage img;
+		SIZE size = { 32, 32 };
+		DVerify(img.Create(size));
+		DVerify(GetMegaTile(img.GetData(), img.GetPitch(), i));
+		nstr = ERA_PATH[era];
+		nstr.Format("%s\\MT\\MT_%04X.pcx", (STRCPTR)nstr.Middle(8), i);
+		DPcx pcx;
+		if (pcx.Create(img, m_Palette))
+			pcx.Save(nstr);
+	}
+#endif
 	return TRUE;
 }
 
@@ -326,9 +341,7 @@ BOOL DTileset::InitIsoMap(VOID)
 				mega_mask |= 1 << j;
 		}
 
-		dict[num].mega_mask = mega_mask;
-
-		num++;
+		dict[num++].mega_mask = mega_mask;
 	}
 
 	return ::InitIsoMapEra(m_Era, dict, num);

@@ -30,7 +30,7 @@
 
 /************************************************************************/
 
-typedef HANDLE	LHFILE;
+typedef HANDLE		LHFILE;
 
 #if defined(LAWINE_EXPORTS) && defined(__cplusplus)
 #include "data/mpq.hpp"
@@ -80,15 +80,26 @@ CAPI extern VOID LAWINE_API LExitMap(VOID);
 CAPI extern BOOL LAWINE_API LCycleColor(PALPTR pal);
 CAPI extern BOOL LAWINE_API LGetUserColor(PALPTR pal, INT user);
 
-CAPI extern LHMPQ LAWINE_API LMpqUseArchive(STRCPTR mpq_name, UINT priority);
-CAPI extern BOOL LAWINE_API LMpqCloseArchive(LHMPQ mpq);
-CAPI extern BOOL LAWINE_API LMpqFileExist(STRCPTR file_name);
-CAPI extern LHFILE LAWINE_API LMpqOpenFile(STRCPTR file_name);
-CAPI extern BOOL LAWINE_API LMpqCloseFile(LHFILE file);
+CAPI extern LHMPQ LAWINE_API LMpqCreate(STRCPTR name, UINT *hash_num);
+CAPI extern LHMPQ LAWINE_API LMpqOpen(STRCPTR name);
+CAPI extern BOOL LAWINE_API LMpqClose(LHMPQ mpq);
+CAPI extern BOOL LAWINE_API LMpqFileExist(LHMPQ mpq, STRCPTR file_name);
+CAPI extern BOOL LAWINE_API LMpqAddFile(LHMPQ mpq, STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt);
+CAPI extern BOOL LAWINE_API LMpqNewFile(LHMPQ mpq, STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compress, BOOL encrypt);
+CAPI extern BOOL LAWINE_API LMpqDelFile(LHMPQ mpq, STRCPTR file_name);
+CAPI extern LHFILE LAWINE_API LMpqOpenFile(LHMPQ mpq, STRCPTR file_name);
+CAPI extern BOOL LAWINE_API LMpqCloseFile(LHMPQ mpq, LHFILE file);
+CAPI extern HANDLE LAWINE_API LMpqOpenHandle(LHMPQ mpq, STRCPTR file_name);
 CAPI extern UINT LAWINE_API LMpqGetFileSize(LHFILE file);
 CAPI extern UINT LAWINE_API LMpqReadFile(LHFILE file, VPTR data, UINT size);
 CAPI extern UINT LAWINE_API LMpqSeekFile(LHFILE file, INT offset, SEEK_MODE mode);
-CAPI extern HANDLE LAWINE_API LMpqOpenHandle(STRCPTR file_name);
+
+CAPI extern LHMPQ LAWINE_API LArcUseArchive(STRCPTR arc_name, UINT priority);
+CAPI extern BOOL LAWINE_API LArcClose(LHMPQ arc);
+CAPI extern BOOL LAWINE_API LArcFileExist(STRCPTR file_name);
+CAPI extern LHFILE LAWINE_API LArcOpenFile(STRCPTR file_name);
+CAPI extern BOOL LAWINE_API LArcCloseFile(LHFILE file);
+CAPI extern HANDLE LAWINE_API LArcOpenHandle(STRCPTR file_name);
 
 CAPI extern LHPCX LAWINE_API LPcxCreate(IMGCPTR img, PALCPTR pal);
 CAPI extern LHPCX LAWINE_API LPcxOpen(STRCPTR name);

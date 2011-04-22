@@ -92,47 +92,144 @@ CAPI BOOL LAWINE_API LGetUserColor(PALPTR pal, INT user)
 
 /************************************************************************/
 
-CAPI LHMPQ LAWINE_API LMpqUseArchive(STRCPTR mpq_name, UINT priority)
+CAPI LHMPQ LAWINE_API LMpqCreate(STRCPTR name, UINT *hash_num)
 {
-	return ::g_Archive.UseArchive(mpq_name, priority);
+	if (!hash_num)
+		return NULL;
+
+	DMpq *mpq = new DMpq;
+	if (!mpq)
+		return NULL;
+
+	if (mpq->CreateArchive(name, *hash_num))
+		return mpq;
+
+	delete mpq;
+	return NULL;
 }
 
-CAPI BOOL LAWINE_API LMpqCloseArchive(LHMPQ mpq)
+CAPI LHMPQ LAWINE_API LMpqOpen(STRCPTR name)
 {
-	return ::g_Archive.CloseArchive(mpq);
+	DMpq *mpq = new DMpq;
+	if (!mpq)
+		return NULL;
+
+	if (mpq->OpenArchive(name))
+		return mpq;
+
+	delete mpq;
+	return NULL;
 }
 
-CAPI BOOL LAWINE_API LMpqFileExist(STRCPTR file_name)
+CAPI BOOL LAWINE_API LMpqClose(LHMPQ mpq)
 {
-	return ::g_Archive.FileExist(file_name);
+	if (!mpq)
+		return FALSE;
+
+	mpq->CloseArchive();
+	delete mpq;
+	return TRUE;
 }
 
-CAPI LHFILE LAWINE_API LMpqOpenFile(STRCPTR file_name)
+CAPI BOOL LAWINE_API LMpqFileExist(LHMPQ mpq, STRCPTR file_name)
 {
-	return ::g_Archive.OpenFile(file_name);
+	if (!mpq)
+		return FALSE;
+
+	return mpq->FileExist(file_name);
 }
 
-CAPI BOOL LAWINE_API LMpqCloseFile(LHFILE file)
+CAPI BOOL LAWINE_API LMpqAddFile(LHMPQ mpq, STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt)
 {
-	return ::g_Archive.CloseFile(file);
+	if (!mpq)
+		return FALSE;
+
+	return mpq->AddFile(file_name, physic_path, compress, encrypt);
+}
+
+CAPI BOOL LAWINE_API LMpqNewFile(LHMPQ mpq, STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compress, BOOL encrypt)
+{
+	if (!mpq)
+		return FALSE;
+
+	return mpq->NewFile(file_name, file_data, size, compress, encrypt);
+}
+
+CAPI BOOL LAWINE_API LMpqDelFile(LHMPQ mpq, STRCPTR file_name)
+{
+	if (!mpq)
+		return FALSE;
+
+	return mpq->DelFile(file_name);
+}
+
+CAPI LHFILE LAWINE_API LMpqOpenFile(LHMPQ mpq, STRCPTR file_name)
+{
+	if (!mpq)
+		return FALSE;
+
+	return mpq->OpenFile(file_name);
+}
+
+CAPI BOOL LAWINE_API LMpqCloseFile(LHMPQ mpq, LHFILE file)
+{
+	if (!mpq || !file)
+		return FALSE;
+
+	return mpq->CloseFile(file);
+}
+
+CAPI HANDLE LAWINE_API LMpqOpenHandle(LHMPQ mpq, STRCPTR file_name)
+{
+	if (!mpq)
+		return FALSE;
+
+	return mpq->OpenHandle(file_name);
 }
 
 CAPI UINT LAWINE_API LMpqGetFileSize(LHFILE file)
 {
-	return ::g_Archive.GetFileSize(file);
+	return DMpq::GetFileSize(file);
 }
 
 CAPI UINT LAWINE_API LMpqReadFile(LHFILE file, VPTR data, UINT size)
 {
-	return ::g_Archive.ReadFile(file, data, size);
+	return DMpq::ReadFile(file, data, size);
 }
 
 CAPI UINT LAWINE_API LMpqSeekFile(LHFILE file, INT offset, SEEK_MODE mode)
 {
-	return ::g_Archive.SeekFile(file, offset, mode);
+	return DMpq::SeekFile(file, offset, mode);
 }
 
-CAPI HANDLE LAWINE_API LMpqOpenHandle(STRCPTR file_name)
+/************************************************************************/
+
+CAPI LHMPQ LAWINE_API LArcUseArchive(STRCPTR arc_name, UINT priority)
+{
+	return ::g_Archive.UseArchive(arc_name, priority);
+}
+
+CAPI BOOL LAWINE_API LArcClose(LHMPQ arc)
+{
+	return ::g_Archive.CloseArchive(arc);
+}
+
+CAPI BOOL LAWINE_API LArcFileExist(STRCPTR file_name)
+{
+	return ::g_Archive.FileExist(file_name);
+}
+
+CAPI LHFILE LAWINE_API LArcOpenFile(STRCPTR file_name)
+{
+	return ::g_Archive.OpenFile(file_name);
+}
+
+CAPI BOOL LAWINE_API LArcCloseFile(LHFILE file)
+{
+	return ::g_Archive.CloseFile(file);
+}
+
+CAPI HANDLE LAWINE_API LArcOpenHandle(STRCPTR file_name)
 {
 	return ::g_Archive.OpenHandle(file_name);
 }

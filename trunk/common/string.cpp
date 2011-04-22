@@ -43,7 +43,7 @@ DString::DString(CHAR ch, INT count /* = 1 */)
 		m_String.assign(count, ch);
 }
 
-DString::DString(CONST Core_String &cs)
+DString::DString(CONST CoreString &cs)
 {
 	m_String = cs;
 }
@@ -254,7 +254,7 @@ DString &DString::Insert(INT pos, STRCPTR s, INT len /* = -1 */)
 
 DString &DString::ToUpper(VOID)
 {
-	Core_String::iterator it;
+	CoreString::iterator it;
 	for (it = m_String.begin(); it != m_String.end(); ++it)
 		*it = DToUpper(*it);
 
@@ -263,7 +263,7 @@ DString &DString::ToUpper(VOID)
 
 DString &DString::ToLower(VOID)
 {
-	Core_String::iterator it;
+	CoreString::iterator it;
 	for (it = m_String.begin(); it != m_String.end(); ++it)
 		*it = DToLower(*it);
 
@@ -330,7 +330,7 @@ CHAR DString::operator * () CONST
 
 DString DString::operator + (STRCPTR s) CONST
 {
-	Core_String cs = *this;
+	CoreString cs = *this;
 
 	if (s)
 		cs.append(s);

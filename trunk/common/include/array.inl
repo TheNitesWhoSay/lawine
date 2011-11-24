@@ -1,4 +1,4 @@
-/************************************************************************/
+﻿/************************************************************************/
 /* File Name   : array.cpp                                              */
 /* Creator     : ax.minaduki@gmail.com                                  */
 /* Create Time : April 21st, 201                                        */
@@ -9,18 +9,12 @@
 /************************************************************************/
 
 template<typename T>
-DArray<T>::DArray() :
-	m_Buffer(NULL),
-	m_Count(0U)
-{
-
-}
-
-template<typename T>
 DArray<T>::DArray(UINT count) :
 	m_Buffer(NULL),
 	m_Count(0U)
 {
+	DAssert(count);
+
 	Alloc(count);
 }
 
@@ -29,9 +23,9 @@ DArray<T>::DArray(TCPTR buf, UINT count) :
 	m_Buffer(NULL),
 	m_Count(0U)
 {
-	if (!buf || !Alloc(count))
-		return;
+	DAssert(buf && count);
 
+	DVerify(Alloc(count));
 	for (UINT i = 0; i < count; i++, buf++)
 		m_Buffer[i] = *buf;
 }
@@ -43,15 +37,6 @@ DArray<T>::~DArray()
 }
 
 /************************************************************************/
-
-template<typename T>
-BOOL DArray<T>::IsNull(VOID) CONST
-{
-	if (m_Buffer)
-		return FALSE;
-
-	return TRUE;
-}
 
 template<typename T>
 UINT DArray<T>::GetCount(VOID) CONST
@@ -83,6 +68,8 @@ DArray<T>::operator TCPTR () CONST
 	return m_Buffer;
 }
 
+/************************************************************************/
+
 template<typename T>
 typename DArray<T>::TPTR DArray<T>::Alloc(UINT count)
 {
@@ -92,9 +79,6 @@ typename DArray<T>::TPTR DArray<T>::Alloc(UINT count)
 		return NULL;
 
 	m_Buffer = new T[count];
-	if (!m_Buffer)
-		return NULL;
-
 	m_Count = count;
 	return m_Buffer;
 }

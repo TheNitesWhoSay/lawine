@@ -15,12 +15,6 @@
 
 /************************************************************************/
 
-#define L_SCM_VER_UNKNOWN		-1
-#define L_SCM_VER_BETA			0
-#define L_SCM_VER_STARCRAFT		1
-#define L_SCM_VER_HYBRID		2
-#define L_SCM_VER_BROODWAR		3
-
 #define L_ERA_ERROR				-1
 #define L_ERA_BADLANDS			0
 #define L_ERA_PLATFORM			1
@@ -173,22 +167,12 @@ typedef struct {
 	LISOMCOORD bottom;
 } LISOMTILE;
 
-typedef struct {
-	WORD dd_no;
-	WORD x;
-	WORD y;
-	BYTE owner;
-} LDOODAD;
-
 typedef LTILEIDX		*LTILEPTR;
 typedef CONST LTILEIDX	*LTILECPTR;
 
 typedef LISOMTILE		*LISOMPTR;
 typedef CONST LISOMTILE	*LISOMCPTR;
 
-typedef LDOODAD			*LDDPTR;
-typedef CONST LDOODAD	*LDDCPTR;
-
 /************************************************************************/
 
-#endif	/* __SD_CORE_COREDEF_H__ */
+#endif	/* __SD_WORLD_COREDEF_H__ */

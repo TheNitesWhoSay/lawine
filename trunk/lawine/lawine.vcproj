@@ -85,7 +85,6 @@
 				ProgramDatabaseFile="../product/debug/lawine.pdb"
 				ImportLibrary="./product/debug/lawine.lib"
 				TargetMachine="1"
-				Profile="true"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -356,6 +355,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\data\tbl.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\data\tbl.hpp"
+				>
+			</File>
+			<File
 				RelativePath=".\data\tileset.cpp"
 				>
 			</File>
@@ -401,6 +408,14 @@
 			</File>
 			<File
 				RelativePath=".\misc\fontdec.h"
+				>
+			</File>
+			<File
+				RelativePath=".\misc\huffman.c"
+				>
+			</File>
+			<File
+				RelativePath=".\misc\huffman.h"
 				>
 			</File>
 			<File

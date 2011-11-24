@@ -19,21 +19,6 @@
 
 class DChk {
 
-protected:
-
-	struct SECTIONHEADER {
-		DWORD	fourcc;
-		DWORD	size;
-	};
-
-	struct SECTIONINFO {
-		UINT	size;
-		DWORD	offset;
-	};
-
-	typedef std::list<SECTIONINFO>			DSectionList;
-	typedef std::map<DWORD, DSectionList>	DSectionMap;
-
 public:
 
 	enum SECTION_TYPE {
@@ -52,6 +37,19 @@ public:
 	BOOL GetSectionData(DWORD fourcc, SECTION_TYPE type, VPTR buf, UINT buf_size) CONST;
 
 protected:
+
+	struct SECTIONHEADER {
+		DWORD	fourcc;
+		DWORD	size;
+	};
+
+	struct SECTIONINFO {
+		UINT	size;
+		DWORD	offset;
+	};
+
+	typedef std::list<SECTIONINFO>			DSectionList;
+	typedef std::map<DWORD, DSectionList>	DSectionMap;
 
 	BOOL Analysis(HANDLE file, UINT size);
 

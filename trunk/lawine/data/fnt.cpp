@@ -63,7 +63,7 @@ BOOL DFnt::Load(STRCPTR name, BOOL crypt /* = TRUE */)
 	if (!data)
 		return FALSE;
 
-	if (!crypt || ::DecryptFont(data, size)) {
+	if (!crypt || decrypt_font(data, size)) {
 		if (!Load(data, size)) {
 			delete [] data;
 			return FALSE;
@@ -166,7 +166,7 @@ BOOL DFnt::Initialize(VOID)
 
 	BOOL ret = FALSE;
 	if (ccd)
-		ret = ::InitFontDecrypt(s_Gid, ccd_data, ccd_size);
+		ret = init_font_decrypt(s_Gid, ccd_data, ccd_size);
 
 	delete [] ccd_data;
 	if (ret)
@@ -179,7 +179,8 @@ BOOL DFnt::Initialize(VOID)
 
 VOID DFnt::Exit(VOID)
 {
-	::ExitFontDecrypt();
+	exit_font_decrypt();
+
 	delete [] s_Gid;
 	s_Gid = NULL;
 }

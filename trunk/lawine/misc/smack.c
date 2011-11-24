@@ -39,7 +39,7 @@ static HMODULE s_Smacker;
 
 /************************************************************************/
 
-BOOL InitSmacker(VOID)
+BOOL init_smacker(LPDIRECTSOUND ds)
 {
 	if (s_Smacker)
 		return TRUE;
@@ -74,10 +74,16 @@ BOOL InitSmacker(VOID)
 
 #undef LOAD_FUNCTION
 
+	/* smackw32.dll使用MMX指令加速 */
+	SmackUseMMX(SMACK_MMX_ON);
+
+	/* smackw32.dll使用DS */
+	SmackSoundUseDirectSound(ds);
+
 	return TRUE;
 }
 
-VOID ExitSmacker(VOID)
+VOID exit_smacker(VOID)
 {
 	SmackUseMMX = NULL;
 	SmackOpen = NULL;

@@ -1,24 +1,23 @@
 ﻿/************************************************************************/
-/* File Name   : color.h                                                */
+/* File Name   : huffman.h                                              */
 /* Creator     : ax.minaduki@gmail.com                                  */
-/* Create Time : May 11st, 2010                                         */
+/* Create Time : May 9th, 2011                                          */
 /* Module      : Lawine library                                         */
-/* Descript    : Color relatived API definition                         */
+/* Descript    : Blizzard huffman compression API definition            */
 /************************************************************************/
 
-#ifndef __SD_LAWINE_MISC_COLOR_H__
-#define __SD_LAWINE_MISC_COLOR_H__
+#ifndef __SD_LAWINE_MISC_HUFFMAN_H__
+#define __SD_LAWINE_MISC_HUFFMAN_H__
 
 /************************************************************************/
 
 #include <common.h>
-#include <image.h>
 
 /************************************************************************/
 
-CAPI extern BOOL cycle_color(PALPTR pal);
-CAPI extern BOOL get_user_color(PALPTR pal, INT user);
+CAPI extern BOOL huff_encode(INT type, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
+CAPI extern BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
 
 /************************************************************************/
 
-#endif	/* __SD_LAWINE_MISC_COLOR_H__ */
+#endif	/* __SD_LAWINE_MISC_HUFFMAN_H__ */

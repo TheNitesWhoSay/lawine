@@ -6,8 +6,8 @@
 /* Descript    : PKWare DCL implode compression API definition          */
 /************************************************************************/
 
-#ifndef __SD_LAWINE_COMPRESS_IMPLODE_H__
-#define __SD_LAWINE_COMPRESS_IMPLODE_H__
+#ifndef __SD_LAWINE_MISC_IMPLODE_H__
+#define __SD_LAWINE_MISC_IMPLODE_H__
 
 /************************************************************************/
 
@@ -29,4 +29,4 @@ CAPI extern BOOL explode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
 
 /************************************************************************/
 
-#endif	/* __SD_LAWINE_COMPRESS_IMPLODE_H__ */
+#endif	/* __SD_LAWINE_MISC_IMPLODE_H__ */

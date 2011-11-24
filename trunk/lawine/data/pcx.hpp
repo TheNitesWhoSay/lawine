@@ -20,6 +20,19 @@
 
 class DPcx {
 
+public:
+
+	DPcx();
+	~DPcx();
+
+	BOOL Create(CONST DImage &img, CONST DPalette &pal);
+	BOOL Load(STRCPTR name);
+	BOOL Save(STRCPTR name) CONST;
+	VOID Clear(VOID);
+	BOOL Decode(VOID);
+	CONST DImage *GetImage(VOID) CONST;
+	CONST DPalette *GetPalette(VOID) CONST;
+
 protected:
 
 	struct HEADER {
@@ -54,23 +67,8 @@ protected:
 		COLOR colors[256];
 	};
 
-public:
-
-	DPcx();
-	~DPcx();
-
-	BOOL Create(CONST DImage &img, CONST DPalette &pal);
-	BOOL Load(STRCPTR name);
-	BOOL Save(STRCPTR name) CONST;
-	VOID Clear(VOID);
-	BOOL Decode(VOID);
-	CONST DImage *GetImage(VOID) CONST;
-	CONST DPalette *GetPalette(VOID) CONST;
-
-protected:
-
 	BOOL CheckHeader(CONST HEADER *&head, BUFCPTR &img, CONST PALETTE *&pal) CONST;
-	BOOL Encode(DFile &file, BUFPTR buf, UINT buf_size) CONST;
+	BOOL Encode(DFile &file) CONST;
 
 	static UINT EncodeRLE(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size);
 	static UINT DecodeRLE(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size);

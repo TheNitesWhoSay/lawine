@@ -34,6 +34,7 @@ typedef HANDLE		LHFILE;
 
 #if defined(LAWINE_EXPORTS) && defined(__cplusplus)
 #include "data/mpq.hpp"
+#include "data/tbl.hpp"
 #include "data/pcx.hpp"
 #include "data/spk.hpp"
 #include "data/grp.hpp"
@@ -42,6 +43,7 @@ typedef HANDLE		LHFILE;
 #include "data/scm.hpp"
 #include "data/tileset.hpp"
 typedef DMpq		*LHMPQ;
+typedef DTbl		*LHTBL;
 typedef DPcx		*LHPCX;
 typedef DSpk		*LHSPK;
 typedef DGrp		*LHGRP;
@@ -51,6 +53,7 @@ typedef DScm		*LHSCM;
 typedef DTileset	*LHTILESET;
 #else
 typedef HANDLE		LHMPQ;
+typedef HANDLE		LHTBL;
 typedef HANDLE		LHPCX;
 typedef HANDLE		LHSPK;
 typedef HANDLE		LHGRP;
@@ -61,9 +64,6 @@ typedef HANDLE		LHTILESET;
 #endif
 
 /************************************************************************/
-
-CAPI extern BOOL LAWINE_API InitLawine(VOID);
-CAPI extern VOID LAWINE_API ExitLawine(VOID);
 
 CAPI extern BOOL LAWINE_API LInitMpq(VOID);
 CAPI extern VOID LAWINE_API LExitMpq(VOID);
@@ -100,6 +100,11 @@ CAPI extern BOOL LAWINE_API LArcFileExist(STRCPTR file_name);
 CAPI extern LHFILE LAWINE_API LArcOpenFile(STRCPTR file_name);
 CAPI extern BOOL LAWINE_API LArcCloseFile(LHFILE file);
 CAPI extern HANDLE LAWINE_API LArcOpenHandle(STRCPTR file_name);
+
+CAPI extern LHTBL LAWINE_API LTblOpen(STRCPTR name);
+CAPI extern BOOL LAWINE_API LTblClose(LHTBL tbl);
+CAPI extern INT LAWINE_API LTblCount(LHTBL tbl);
+CAPI extern STRCPTR LAWINE_API LTblString(LHTBL tbl, INT index);
 
 CAPI extern LHPCX LAWINE_API LPcxCreate(IMGCPTR img, PALCPTR pal);
 CAPI extern LHPCX LAWINE_API LPcxOpen(STRCPTR name);
@@ -145,7 +150,7 @@ CAPI extern LHSCM LAWINE_API LScmOpen(STRCPTR name, BOOL for_edit);
 CAPI extern BOOL LAWINE_API LScmSave(LHSCM scm, STRCPTR name);
 CAPI extern BOOL LAWINE_API LScmClose(LHSCM scm);
 CAPI extern BOOL LAWINE_API LScmEditable(LHSCM scm);
-CAPI extern INT LAWINE_API LScmGetVersion(LHSCM scm);
+CAPI extern WORD LAWINE_API LScmGetVersion(LHSCM scm);
 CAPI extern INT LAWINE_API LScmGetEra(LHSCM scm);
 CAPI extern BOOL LAWINE_API LScmGetSize(LHSCM scm, SIZE *size);
 CAPI extern IMGCPTR LAWINE_API LScmGetMinimap(LHSCM scm);

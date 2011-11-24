@@ -35,17 +35,17 @@ static struct IDEA_KEY s_IdeaKey;
 
 /************************************************************************/
 
-static VOID RandSeed(UINT seed);
-static INT Random(VOID);
-static VOID RandSerial(STRPTR rand_buf, UINT buf_size);
-static INT GenrateKey(VOID);
-static INT DecryptData(STRCPTR key, STRPTR data, UINT buf_size);
-static VOID GetDecryptKey(VPTR ekey);
-static VOID PrepareDecrypt(STRCPTR key);
+static VOID rand_seed(UINT seed);
+static INT random(VOID);
+static VOID rand_serial(STRPTR rand_buf, UINT buf_size);
+static INT generate_key(VOID);
+static INT decrypt_data(STRCPTR key, STRPTR data, UINT buf_size);
+static VOID get_decrypt_key(VPTR ekey);
+static VOID prepare_decrypt(STRCPTR key);
 
 /************************************************************************/
 
-BOOL InitFontDecrypt(BUFCPTR gid, BUFPTR ccd, UINT ccd_size)
+BOOL init_font_decrypt(BUFCPTR gid, BUFPTR ccd, UINT ccd_size)
 {
 	UINT count;
 
@@ -58,17 +58,17 @@ BOOL InitFontDecrypt(BUFCPTR gid, BUFPTR ccd, UINT ccd_size)
 	s_Gid = gid;
 
 	/* 生成全局密钥 */
-	if (!GenrateKey()) {
-		ExitFontDecrypt();
+	if (!generate_key()) {
+		exit_font_decrypt();
 		return FALSE;
 	}
 
 	/* 使用该密钥对CCD文件解密 */
-	count = DecryptData(s_Key, (STRPTR)ccd, ccd_size);
+	count = decrypt_data(s_Key, (STRPTR)ccd, ccd_size);
 
 	/* 通过对解密得到的明文的前7个字节进行校验来确定密钥的有效性 */
 	if (count > ccd_size || strncmp((STRCPTR)ccd, KEY_VERIFY_CODE, 7)) {
-		ExitFontDecrypt();
+		exit_font_decrypt();
 		return FALSE;
 	}
 
@@ -76,7 +76,7 @@ BOOL InitFontDecrypt(BUFCPTR gid, BUFPTR ccd, UINT ccd_size)
 	return TRUE;
 }
 
-VOID ExitFontDecrypt(VOID)
+VOID exit_font_decrypt(VOID)
 {
 	DVarClr(s_Key);
 	DVarClr(s_Sha);
@@ -85,13 +85,13 @@ VOID ExitFontDecrypt(VOID)
 	s_InitFlag = FALSE;
 }
 
-BOOL DecryptFont(BUFPTR fnt_src, UINT size)
+BOOL decrypt_font(BUFPTR fnt_src, UINT size)
 {
 	if (!s_InitFlag || !fnt_src || !size)
 		return FALSE;
 
 	// 使用密钥解密字体文件
-	if (!DecryptData(s_Key, (STRPTR)fnt_src, size))
+	if (!decrypt_data(s_Key, (STRPTR)fnt_src, size))
 		return FALSE;
 
 	return TRUE;
@@ -99,30 +99,30 @@ BOOL DecryptFont(BUFPTR fnt_src, UINT size)
 
 /************************************************************************/
 
-/* RandSeed/Random函数的实现等完全同于VC的CRT库函数srand与rand的实现，
+/* rand_seed/random函数的实现等完全同于VC的CRT库函数srand与rand的实现，
    这里提供一个复制的实现只是为了确保你使用VC CRT以外的库也能得到正确结果；当然，
    你在VC下完全可以使用srand/rand来替代这些函数，实际上WIN版的星际争霸本身就是这么做的，
    此外星际争霸在每次用完一个随机种子后都会用srand(time(NULL))来复位CRT的随机种子。 */
 
-VOID RandSeed(UINT seed)
+VOID rand_seed(UINT seed)
 {
 	s_RandSeed = seed;
 }
 
-INT Random(VOID)
+INT random(VOID)
 {
 	s_RandSeed = s_RandSeed * 214013 + 2531011;
 	return (s_RandSeed >> 16) & 0x7fff;
 }
 
-VOID RandSerial(STRPTR rand_buf, UINT buf_size)
+VOID rand_serial(STRPTR rand_buf, UINT buf_size)
 {
 	UINT i;
 
-	RandSeed(0x150b);
+	rand_seed(0x150b);
 
 	for (i = 0; i < buf_size;) {
-		CHAR ch = Random();
+		CHAR ch = random();
 		if (ch)
 			rand_buf[i++] = ch;
 	}
@@ -130,7 +130,7 @@ VOID RandSerial(STRPTR rand_buf, UINT buf_size)
 	rand_buf[buf_size - 1] = '\0';
 }
 
-INT GenrateKey(VOID)
+INT generate_key(VOID)
 {
 	INT i;
 	UINT size, count;
@@ -139,14 +139,14 @@ INT GenrateKey(VOID)
 	/* 产生特定随机序列（20字节）：
 	   { 0xde, 0x88, 0x2a, 0x14, 0xdb, 0x23, 0xe3, 0x8f, 0xb3, 0xfb, 
 	     0x7b, 0xa4, 0x22, 0xeb, 0x34, 0x18, 0x22, 0x15, 0x7a, 0x00, } */
-	RandSerial(rand, sizeof(rand));
+	rand_serial(rand, sizeof(rand));
 
 	/* GID文件内容为被上述序列加密后了的真正密钥 */
 	size = DMin(sizeof(s_Key), FONT_GID_SIZE);
 	DMemCpy(s_Key, s_Gid, size);
 
 	/* 用随机序列作为密钥解密GID，从而得到真正的密钥 */
-	count = DecryptData(rand, s_Key, size);
+	count = decrypt_data(rand, s_Key, size);
 	if (!count || count >= size)
 		return FALSE;
 
@@ -165,7 +165,7 @@ INT GenrateKey(VOID)
 	return FALSE;
 }
 
-INT DecryptData(STRCPTR key, STRPTR data, UINT buf_size)
+INT decrypt_data(STRCPTR key, STRPTR data, UINT buf_size)
 {
 	INT i, j;
 	UINT data_size, leave_size;
@@ -177,7 +177,7 @@ INT DecryptData(STRCPTR key, STRPTR data, UINT buf_size)
 		return 0;
 
 	/* 准备好IDEA解密密钥和需要用到的SHA-0摘要 */
-	PrepareDecrypt(key);
+	prepare_decrypt(key);
 
 	/* 每个加密封包都有8字节的尾部，所以其大小不可能小于或等于8字节 */
 	if (buf_size <= sizeof(struct DATA_TAIL))
@@ -234,7 +234,7 @@ INT DecryptData(STRCPTR key, STRPTR data, UINT buf_size)
 	return tail->size + data_size - 0x40;
 }
 
-VOID GetDecryptKey(VPTR ekey)
+VOID get_decrypt_key(VPTR ekey)
 {
 	INT i, j;
 	WORD *p, *q;
@@ -252,7 +252,7 @@ VOID GetDecryptKey(VPTR ekey)
 	idea_decrypt_key(ekey, &s_IdeaKey);
 }
 
-VOID PrepareDecrypt(STRCPTR key)
+VOID prepare_decrypt(STRCPTR key)
 {
 	INT i, j;
 	STRCPTR digest;
@@ -276,16 +276,16 @@ VOID PrepareDecrypt(STRCPTR key)
 	digest = (STRCPTR)&s_Sha;
 
 	/* 用特殊循环序列与上述摘要进行异或运算，得到原始IDEA加密密钥 */
-	RandSeed(0x4fa7);
+	rand_seed(0x4fa7);
 	for (i = 0; i < 0x70; i++)
-		ekey[i] = Random() ^ digest[i % 0x14];
+		ekey[i] = random() ^ digest[i % 0x14];
 
 	/* 计算原始IDEA加密密钥后64字节的SHA-0摘要 */
 	sha_init(&s_Sha);
 	sha_update(&s_Sha, ekey + 0x30);
 
 	/* 从原始IDEA加密密钥获得IDEA加密密钥，进而得到IDEA解密密钥 */
-	GetDecryptKey(ekey);
+	get_decrypt_key(ekey);
 }
 
 /************************************************************************/

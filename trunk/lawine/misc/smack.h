@@ -106,8 +106,8 @@ CAPI extern BYTE (WINAPI *SmackSoundUseDirectSound)(LPDIRECTSOUND ds);		// NULL 
 
 /************************************************************************/
 
-CAPI extern BOOL InitSmacker(VOID);
-CAPI extern VOID ExitSmacker(VOID);
+CAPI extern BOOL init_smacker(LPDIRECTSOUND ds);
+CAPI extern VOID exit_smacker(VOID);
 
 /************************************************************************/
 

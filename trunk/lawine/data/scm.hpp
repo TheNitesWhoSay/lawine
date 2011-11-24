@@ -23,6 +23,29 @@
 
 class DScm {
 
+public:
+
+	DScm();
+	~DScm();
+
+	BOOL Create(CONST DTileset &ts, INT def, CONST SIZE &size);
+	BOOL Load(STRCPTR name, BOOL for_edit);
+	BOOL Save(STRCPTR name) CONST;
+	VOID Clear(VOID);
+
+	BOOL GetEditable(VOID) CONST;
+	WORD GetVersion(VOID) CONST;
+	INT GetEra(VOID) CONST;
+	BOOL GetSize(SIZE &size) CONST;
+	LTILECPTR GetTileData(VOID) CONST;
+	LISOMCPTR GetIsoMapData(VOID) CONST;
+
+	IMGCPTR GetMinimap(VOID) CONST;
+	BOOL GenMinimap(CONST DTileset &ts);
+
+	BOOL IsoBrush(INT brush, CONST POINT &tile_pos);
+	BOOL UpdateTile(VOID);
+
 protected:
 
 	struct ERA_DATA {
@@ -57,31 +80,6 @@ protected:
 		BYTE op[16];
 	};
 
-public:
-
-	DScm();
-	~DScm();
-
-	BOOL Create(CONST DTileset &ts, INT def, CONST SIZE &size);
-	BOOL Load(STRCPTR name, BOOL for_edit);
-	BOOL Save(STRCPTR name) CONST;
-	VOID Clear(VOID);
-
-	BOOL GetEditable(VOID) CONST;
-	INT GetVersion(VOID) CONST;
-	INT GetEra(VOID) CONST;
-	BOOL GetSize(SIZE &size) CONST;
-	LTILECPTR GetTileData(VOID) CONST;
-	LISOMCPTR GetIsoMapData(VOID) CONST;
-
-	IMGCPTR GetMinimap(VOID) CONST;
-	BOOL GenMinimap(CONST DTileset &ts);
-
-	BOOL IsoBrush(INT brush, CONST POINT &tile_pos);
-	BOOL UpdateTile(VOID);
-
-protected:
-
 	BOOL LoadMap(VOID);
 	BOOL Verify(VOID);
 	BOOL ReadVersion(VOID);
@@ -99,18 +97,16 @@ protected:
 	static BOOL CheckMapSize(CONST SIZE &size);
 	static DWORD CalcVerifyHash(VCODE *vcode, UINT vcode_size, VCPTR vdata, UINT vdata_size);
 
-	static CONST VCODE VERIFY_CODE;
-
 	BOOL			m_Valid;
 	BOOL			m_Edit;
-	INT				m_Version;
-	UINT			m_DdNum;
+	WORD			m_Version;
 	LTILEPTR		m_Tile;
-	LDDPTR			m_Doodad;
 	ISOM_MAP		m_IsoMap;
 	DChk			m_Chk;
 	DImage			m_Minimap;
 	DMpq			*m_Archive;
+
+	static CONST VCODE VERIFY_CODE;
 
 };
 

@@ -344,13 +344,13 @@ BOOL DTileset::InitIsoMap(VOID)
 		dict[num++].mega_mask = mega_mask;
 	}
 
-	return ::InitIsoMapEra(m_Era, dict, num);
+	return init_iso_era(m_Era, dict, num);
 }
 
 VOID DTileset::ExitIsoMap(VOID)
 {
 	if (DBetween(m_Era, 0, L_ERA_NUM))
-		::ExitIsoMapEra(m_Era);
+		exit_iso_era(m_Era);
 }
 
 CONST DPalette *DTileset::GetPalette(VOID) CONST
@@ -586,8 +586,6 @@ BOOL DTileset::GenerateThumb(VOID)
 		return FALSE;
 
 	m_Thumb = new BYTE[m_Vr4Num];
-	if (!m_Thumb)
-		return FALSE;
 
 	for (UINT mini_no = 0; mini_no < m_Vr4Num; mini_no++) {
 
@@ -606,9 +604,6 @@ BOOL DTileset::LoadCv5(HANDLE file, UINT tile_num, UINT dd_num)
 	DAssert(file && tile_num);
 
 	CV5_TILE *cv5_tile = new CV5_TILE[tile_num];
-	if (!cv5_tile)
-		return FALSE;
-
 	UINT size = tile_num * sizeof(CV5_TILE);
 	if (::g_Archive.ReadFile(file, cv5_tile, size) != size) {
 		delete [] cv5_tile;
@@ -635,9 +630,6 @@ BOOL DTileset::LoadCv5Dd(HANDLE file, UINT dd_num)
 	}
 
 	CV5_DOODAD *cv5_dd = new CV5_DOODAD[dd_num];
-	if (!cv5_dd)
-		return FALSE;
-
 	UINT size = dd_num * sizeof(CV5_DOODAD);
 	if (::g_Archive.ReadFile(file, cv5_dd, size) != size) {
 		delete [] cv5_dd;
@@ -654,9 +646,6 @@ BOOL DTileset::LoadVf4(HANDLE file, UINT mega_num)
 	DAssert(file && mega_num);
 
 	VF4_MEGATILE *vf4 = new VF4_MEGATILE[mega_num];
-	if (!vf4)
-		return FALSE;
-
 	UINT size = mega_num * sizeof(VF4_MEGATILE);
 	if (::g_Archive.ReadFile(file, vf4, size) != size) {
 		delete [] vf4;
@@ -673,9 +662,6 @@ BOOL DTileset::LoadVx4(HANDLE file, UINT mega_num)
 	DAssert(file && mega_num);
 
 	VX4_MEGATILE *vx4 = new VX4_MEGATILE[mega_num];
-	if (!vx4)
-		return FALSE;
-
 	UINT size = mega_num * sizeof(VX4_MEGATILE);
 	if (::g_Archive.ReadFile(file, vx4, size) != size) {
 		delete [] vx4;

@@ -19,9 +19,9 @@
 
 /************************************************************************/
 
-CAPI extern BOOL InitFontDecrypt(BUFCPTR gid, BUFPTR ccd, UINT ccd_size);
-CAPI extern VOID ExitFontDecrypt(VOID);
-CAPI extern BOOL DecryptFont(BUFPTR fnt_src, UINT size);
+CAPI extern BOOL init_font_decrypt(BUFCPTR gid, BUFPTR ccd, UINT ccd_size);
+CAPI extern VOID exit_font_decrypt(VOID);
+CAPI extern BOOL decrypt_font(BUFPTR fnt_src, UINT size);
 
 /************************************************************************/
 

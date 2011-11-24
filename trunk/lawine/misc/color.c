@@ -27,7 +27,7 @@ CONST struct CYCLING_SECTION CYCLING[CYCLING_SECTION_NUM] = {
 
 /************************************************************************/
 
-BOOL CycleColor(PALPTR pal)
+BOOL cycle_color(PALPTR pal)
 {
 	INT i;
 	PALPTR p;
@@ -46,7 +46,7 @@ BOOL CycleColor(PALPTR pal)
 	return TRUE;
 }
 
-BOOL GetUserColor(PALPTR pal, INT user)
+BOOL get_user_color(PALPTR pal, INT user)
 {
 	// TODO:
 	return FALSE;

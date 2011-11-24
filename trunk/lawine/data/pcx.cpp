@@ -108,12 +108,7 @@ BOOL DPcx::Save(STRCPTR name) CONST
 	if (!m_Image.IsValid())
 		return FALSE;
 
-	UINT buf_size = m_Image.GetPitch() * m_Image.GetHeight() * 2;
-	DArray<BYTE> buf(buf_size);
-	if (buf.IsNull())
-		return FALSE;
-
-	return Encode(file, buf, buf_size);
+	return Encode(file);
 }
 
 VOID DPcx::Clear(VOID)
@@ -220,13 +215,14 @@ BOOL DPcx::CheckHeader(CONST HEADER *&head, BUFCPTR &img, CONST PALETTE *&pal) C
 	return TRUE;
 }
 
-BOOL DPcx::Encode(DFile &file, BUFPTR buf, UINT buf_size) CONST
+BOOL DPcx::Encode(DFile &file) CONST
 {
-	DAssert(buf && buf_size);
-
+	UINT buf_size = m_Image.GetPitch() * m_Image.GetHeight() * 2;
 	BUFCPTR data = m_Image.GetData();
 	INT line = m_Image.GetHeight();
 	UINT pitch = m_Image.GetPitch();
+	DArray<BYTE> buf(buf_size);
+
 	DAssert(data && line && pitch);
 
 	BUFPTR p = buf;

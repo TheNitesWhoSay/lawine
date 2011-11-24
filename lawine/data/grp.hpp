@@ -18,6 +18,17 @@
 
 class DGrp {
 
+public:
+
+	DGrp();
+	~DGrp();
+
+	BOOL Load(STRCPTR name);
+	VOID Clear(VOID);
+	BOOL Decode(INT frame_no);
+	INT GetFrameNum(VOID) CONST;
+	CONST DImage *GetImage(VOID) CONST;
+
 protected:
 
 	struct HEADER {
@@ -35,19 +46,6 @@ protected:
 	};
 
 	class DFrame;
-
-public:
-
-	DGrp();
-	~DGrp();
-
-	BOOL Load(STRCPTR name);
-	VOID Clear(VOID);
-	BOOL Decode(INT frame_no);
-	INT GetFrameNum(VOID) CONST;
-	CONST DImage *GetImage(VOID) CONST;
-
-protected:
 
 	BOOL Load(BUFCPTR data, UINT size);
 	DFrame *LoadFrame(CONST FRAMEHEADER *frame_head, UINT pitch);
@@ -67,10 +65,6 @@ protected:
 
 class DGrp::DFrame {
 
-protected:
-	
-	typedef WORD LINEOFFSET;
-
 public:
 	
 	DFrame(BUFPTR buf, UINT pitch);
@@ -82,10 +76,10 @@ public:
 
 protected:
 
+	typedef WORD LINEOFFSET;
+
 	static BOOL CheckHeader(CONST FRAMEHEADER *head);
 	static VOID DecodeLine(BUFCPTR line_begin, BUFCPTR line_end, BUFPTR buf);
-
-protected:
 
 	BUFPTR				m_Buffer;
 	UINT				m_Pitch;

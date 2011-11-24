@@ -51,14 +51,14 @@ typedef struct {
 
 /************************************************************************/
 
-CAPI extern BOOL InitIsoMap(VOID);
-CAPI extern VOID ExitIsoMap(VOID);
-CAPI extern BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num);
-CAPI extern VOID ExitIsoMapEra(INT era);
-CAPI extern BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map);
-CAPI extern VOID DestroyIsoMap(ISOM_MAP *map);
-CAPI extern BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos);
-CAPI extern BOOL UpdateIsoMap(CONST ISOM_MAP *map);
+CAPI extern BOOL init_iso_map(VOID);
+CAPI extern VOID exit_iso_map(VOID);
+CAPI extern BOOL init_iso_era(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num);
+CAPI extern VOID exit_iso_era(INT era);
+CAPI extern BOOL create_iso_map(ISOM_MAP *map, BOOL new_map);
+CAPI extern VOID destroy_iso_map(ISOM_MAP *map);
+CAPI extern BOOL brush_iso_map(ISOM_MAP *map, INT brush, CONST POINT *tile_pos);
+CAPI extern BOOL update_iso_map(CONST ISOM_MAP *map);
 
 /************************************************************************/
 

@@ -138,15 +138,18 @@ BOOL DText::Release(VOID)
 STRPTR DText::AllocData(STRCPTR data, UINT len /* = 0U */)
 {
 	if (!data) {
-		if (len)
-			return new CHAR[len + 1];
-		return NULL;
+		if (!len)
+			return NULL;
+		return new CHAR[len + 1];
 	}
 
 	if (!len)
 		len = DStrLen(data);
 
 	STRPTR buf = new CHAR[len + 1];
+	if (!buf)
+		return NULL;
+
 	DStrCpyN(buf, data, len);
 	buf[len] = '\0';
 	return buf;

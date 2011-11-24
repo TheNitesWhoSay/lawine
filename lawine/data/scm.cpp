@@ -12,8 +12,8 @@
 
 /************************************************************************/
 
-#define SAFE_ROL(x, n)	(((x) << ((n) & 0x1f)) | (x >> (32 - ((n) & 0x1f))))
-#define SAFE_ROR(x, n)	(((x) >> ((n) & 0x1f)) | (x << (32 - ((n) & 0x1f))))
+#define ROTATE_LEFT(x, n)	(((x) << ((n) & 0x1f)) | (x >> (32 - ((n) & 0x1f))))
+#define ROTATE_RIGHT(x, n)	(((x) >> ((n) & 0x1f)) | (x << (32 - ((n) & 0x1f))))
 
 /************************************************************************/
 
@@ -109,10 +109,8 @@ CONST DScm::VCODE DScm::VERIFY_CODE = {
 DScm::DScm() :
 	m_Valid(FALSE),
 	m_Edit(FALSE),
-	m_Version(L_SCM_VER_UNKNOWN),
-	m_DdNum(0),
+	m_Version(0),
 	m_Tile(NULL),
-	m_Doodad(NULL),
 	m_Archive(NULL)
 {
 	m_IsoMap.era = L_ERA_ERROR;
@@ -225,7 +223,7 @@ BOOL DScm::Create(CONST DTileset &ts, INT def, CONST SIZE &size)
 	m_IsoMap.def = def;
 	m_IsoMap.size = size;
 
-	if (!::CreateIsoMap(&m_IsoMap, TRUE)) {
+	if (!create_iso_map(&m_IsoMap, TRUE)) {
 		Clear();
 		return FALSE;
 	}
@@ -243,7 +241,7 @@ BOOL DScm::Create(CONST DTileset &ts, INT def, CONST SIZE &size)
 
 	m_Valid = TRUE;
 	m_Edit = TRUE;
-	m_Version = L_SCM_VER_HYBRID;
+	m_Version = 0x3f;
 
 	return TRUE;
 }
@@ -292,7 +290,7 @@ VOID DScm::Clear(VOID)
 		m_Archive = NULL;
 	}
 
-	::DestroyIsoMap(&m_IsoMap);
+	destroy_iso_map(&m_IsoMap);
 	m_IsoMap.era = L_ERA_ERROR;
 	m_IsoMap.def = 0;
 	m_IsoMap.isom = NULL;
@@ -300,14 +298,10 @@ VOID DScm::Clear(VOID)
 	m_IsoMap.dirty = NULL;
 	DVarClr(m_IsoMap.size);
 
-	m_DdNum = 0U;
-	delete [] m_Doodad;
-	m_Doodad = NULL;
-
 	delete [] m_Tile;
 	m_Tile = NULL;
 
-	m_Version = L_SCM_VER_UNKNOWN;
+	m_Version = 0;
 
 	m_Edit = FALSE;
 	m_Valid = FALSE;
@@ -318,7 +312,7 @@ BOOL DScm::GetEditable(VOID) CONST
 	return m_Edit;
 }
 
-INT DScm::GetVersion(VOID) CONST
+WORD DScm::GetVersion(VOID) CONST
 {
 	return m_Version;
 }
@@ -380,7 +374,7 @@ BOOL DScm::IsoBrush(INT brush, CONST POINT &tile_pos)
 	if (!m_Valid || !m_Edit)
 		return FALSE;
 
-	return ::BrushIsoMap(&m_IsoMap, brush, &tile_pos);
+	return brush_iso_map(&m_IsoMap, brush, &tile_pos);
 }
 
 BOOL DScm::UpdateTile(VOID)
@@ -388,7 +382,7 @@ BOOL DScm::UpdateTile(VOID)
 	if (!m_Valid || !m_Edit)
 		return FALSE;
 
-	if (!::UpdateIsoMap(&m_IsoMap))
+	if (!update_iso_map(&m_IsoMap))
 		return FALSE;
 
 #if 1
@@ -445,31 +439,12 @@ BOOL DScm::Verify(VOID)
 
 BOOL DScm::ReadVersion(VOID)
 {
-	WORD version;
-
 	UINT size = m_Chk.GetSectionSize(FOURCC_VER, DChk::ST_LASTONE);
-	if (size != sizeof(version))
+	if (size != sizeof(m_Version))
 		return FALSE;
 
-	if (!m_Chk.GetSectionData(FOURCC_VER, DChk::ST_LASTONE, &version, sizeof(version)))
+	if (!m_Chk.GetSectionData(FOURCC_VER, DChk::ST_LASTONE, &m_Version, sizeof(m_Version)))
 		return FALSE;
-
-	switch (version) {
-	case 0x39:
-		m_Version = L_SCM_VER_BETA;
-		break;
-	case 0x3b:
-		m_Version = L_SCM_VER_STARCRAFT;
-		break;
-	case 0x3f:
-		m_Version = L_SCM_VER_HYBRID;
-		break;
-	case 0xcd:
-		m_Version = L_SCM_VER_BROODWAR;
-		break;
-	default:
-		return FALSE;
-	}
 
 	return TRUE;
 }
@@ -525,9 +500,6 @@ BOOL DScm::ReadTile(VOID)
 	DAssert(map_size > 0);
 
 	m_Tile = new LTILEIDX[map_size];
-	if (!m_Tile)
-		return FALSE;
-
 	map_size *= sizeof(LTILEIDX);
 	DMemClr(m_Tile, map_size);
 
@@ -540,9 +512,9 @@ BOOL DScm::ReadTile(VOID)
 
 BOOL DScm::ReadIsoMap(VOID)
 {
-	DAssert(!m_IsoMap.isom && !m_IsoMap.tile && !m_Doodad);
+	DAssert(!m_IsoMap.isom && !m_IsoMap.tile);
 
-	if (!::CreateIsoMap(&m_IsoMap, DChk::ST_OVERRIDE))
+	if (!create_iso_map(&m_IsoMap, DChk::ST_OVERRIDE))
 		return FALSE;
 
 	UINT tile_size = m_Chk.GetSectionSize(FOURCC_TILE, DChk::ST_OVERRIDE);
@@ -564,23 +536,11 @@ BOOL DScm::ReadIsoMap(VOID)
 	UINT dd2_size = m_Chk.GetSectionSize(FOURCC_DD2, DChk::ST_DUPLICATE);
 	UINT dd_num = dd2_size / sizeof(DD2_DATA);
 	if (dd_num) {
-		dd2_size = dd_num * sizeof(DD2_DATA);
-		DArray<DD2_DATA> dd2(dd2_size);
-		if (!dd2.IsNull()) {
-			if (!m_Chk.GetSectionData(FOURCC_DD2, DChk::ST_DUPLICATE, dd2, dd2_size))
-				return FALSE;
-			LDDPTR doodad = new LDOODAD[dd_num];
-			if (doodad) {
-				for (UINT i = 0U; i < dd_num; i++) {
-					doodad[i].dd_no = dd2[i].dd_no;
-					doodad[i].x = dd2[i].x;
-					doodad[i].y = dd2[i].y;
-					doodad[i].owner = dd2[i].owner;
-				}
-				m_DdNum = dd_num;
-				m_Doodad = doodad;
-			}
-		}
+		DD2_DATA *dd2 = new DD2_DATA[dd_num];
+		if (!m_Chk.GetSectionData(FOURCC_DD2, DChk::ST_DUPLICATE, dd2, dd_num * sizeof(DD2_DATA)))
+			return FALSE;
+		// TODO:
+		delete [] dd2;
 	}
 
 	// TODO: recover TILE and ISOM
@@ -598,7 +558,7 @@ BOOL DScm::ReadThingy(VOID)
 		return TRUE;
 
 	THG2_DATA *thg2 = new THG2_DATA[thg_num];
-	if (thg2 && m_Chk.GetSectionData(FOURCC_THG2, DChk::ST_DUPLICATE, thg2, thg_num * sizeof(THG2_DATA))) {
+	if (m_Chk.GetSectionData(FOURCC_THG2, DChk::ST_DUPLICATE, thg2, thg_num * sizeof(THG2_DATA))) {
 
 	}
 
@@ -751,16 +711,16 @@ DWORD DScm::CalcVerifyHash(VCODE *vcode, UINT vcode_size, VCPTR vdata, UINT vdat
 				hash ^= vcode->code[ptr[3]];
 				break;
 			case 0x06:
-				hash = SAFE_ROL(hash, ptr[0]);
-				hash = SAFE_ROL(hash, ptr[1]);
-				hash = SAFE_ROL(hash, ptr[2]);
-				hash = SAFE_ROL(hash, ptr[3]);
+				hash = ROTATE_LEFT(hash, ptr[0]);
+				hash = ROTATE_LEFT(hash, ptr[1]);
+				hash = ROTATE_LEFT(hash, ptr[2]);
+				hash = ROTATE_LEFT(hash, ptr[3]);
 				break;
 			case 0x07:
-				hash = SAFE_ROR(hash, ptr[0]);
-				hash = SAFE_ROR(hash, ptr[1]);
-				hash = SAFE_ROR(hash, ptr[2]);
-				hash = SAFE_ROR(hash, ptr[3]);
+				hash = ROTATE_RIGHT(hash, ptr[0]);
+				hash = ROTATE_RIGHT(hash, ptr[1]);
+				hash = ROTATE_RIGHT(hash, ptr[2]);
+				hash = ROTATE_RIGHT(hash, ptr[3]);
 				break;
 			default:
 				break;

@@ -19,16 +19,6 @@
 
 /************************************************************************/
 
-CAPI BOOL LAWINE_API InitLawine(VOID)
-{
-	return TRUE;
-}
-
-CAPI VOID LAWINE_API ExitLawine(VOID)
-{
-
-}
-
 CAPI BOOL LAWINE_API LInitMpq(VOID)
 {
 	return DMpq::Initialize();
@@ -41,21 +31,15 @@ CAPI VOID LAWINE_API LExitMpq(VOID)
 
 CAPI BOOL LAWINE_API LInitSmack(LPDIRECTSOUND ds)
 {
-	if (!::InitSmacker())
+	if (!init_smacker(ds))
 		return FALSE;
-
-	/* smackw32.dll使用MMX指令加速 */
-	::SmackUseMMX(SMACK_MMX_ON);
-
-	/* smackw32.dll使用DS */
-	::SmackSoundUseDirectSound(ds);
 
 	return TRUE;
 }
 
 CAPI VOID LAWINE_API LExitSmack(VOID)
 {
-	::ExitSmacker();
+	exit_smacker();
 }
 
 CAPI BOOL LAWINE_API LInitFont(VOID)
@@ -70,24 +54,24 @@ CAPI VOID LAWINE_API LExitFont(VOID)
 
 CAPI BOOL LAWINE_API LInitMap(VOID)
 {
-	return ::InitIsoMap();
+	return init_iso_map();
 }
 
 CAPI VOID LAWINE_API LExitMap(VOID)
 {
-	::ExitIsoMap();
+	exit_iso_map();
 }
 
 /************************************************************************/
 
 CAPI BOOL LAWINE_API LCycleColor(PALPTR pal)
 {
-	return ::CycleColor(pal);
+	return cycle_color(pal);
 }
 
 CAPI BOOL LAWINE_API LGetUserColor(PALPTR pal, INT user)
 {
-	return ::GetUserColor(pal, user);
+	return get_user_color(pal, user);
 }
 
 /************************************************************************/
@@ -98,9 +82,6 @@ CAPI LHMPQ LAWINE_API LMpqCreate(STRCPTR name, UINT *hash_num)
 		return NULL;
 
 	DMpq *mpq = new DMpq;
-	if (!mpq)
-		return NULL;
-
 	if (mpq->CreateArchive(name, *hash_num))
 		return mpq;
 
@@ -111,9 +92,6 @@ CAPI LHMPQ LAWINE_API LMpqCreate(STRCPTR name, UINT *hash_num)
 CAPI LHMPQ LAWINE_API LMpqOpen(STRCPTR name)
 {
 	DMpq *mpq = new DMpq;
-	if (!mpq)
-		return NULL;
-
 	if (mpq->OpenArchive(name))
 		return mpq;
 
@@ -236,15 +214,51 @@ CAPI HANDLE LAWINE_API LArcOpenHandle(STRCPTR file_name)
 
 /************************************************************************/
 
+CAPI LHTBL LAWINE_API LTblOpen(STRCPTR name)
+{
+	DTbl *tbl = new DTbl;
+	if (tbl->Load(name))
+		return tbl;
+
+	delete tbl;
+	return NULL;
+}
+
+CAPI BOOL LAWINE_API LTblClose(LHTBL tbl)
+{
+	if (!tbl)
+		return FALSE;
+
+	tbl->Clear();
+	delete tbl;
+	return TRUE;
+	
+}
+
+CAPI INT LAWINE_API LTblCount(LHTBL tbl)
+{
+	if (!tbl)
+		return 0;
+
+	return tbl->GetCount();
+}
+
+CAPI STRCPTR LAWINE_API LTblString(LHTBL tbl, INT index)
+{
+	if (!tbl)
+		return NULL;
+
+	return tbl->GetString(index);
+}
+
+/************************************************************************/
+
 CAPI LHPCX LAWINE_API LPcxCreate(IMGCPTR img, PALCPTR pal)
 {
 	if (!img)
 		return NULL;
 
 	DPcx *pcx = new DPcx;
-	if (!pcx)
-		return NULL;
-
 	if (pcx->Create(DImage(*const_cast<IMGPTR>(img)), DPalette(const_cast<PALPTR>(pal))))
 		return pcx;
 
@@ -255,9 +269,6 @@ CAPI LHPCX LAWINE_API LPcxCreate(IMGCPTR img, PALCPTR pal)
 CAPI LHPCX LAWINE_API LPcxOpen(STRCPTR name)
 {
 	DPcx *pcx = new DPcx;
-	if (!pcx)
-		return NULL;
-
 	if (pcx->Load(name))
 		return pcx;
 
@@ -320,9 +331,6 @@ CAPI PALCPTR LAWINE_API LPcxGetPalette(LHPCX pcx)
 CAPI LHSPK LAWINE_API LSpkOpen(STRCPTR name)
 {
 	DSpk *spk = new DSpk;
-	if (!spk)
-		return NULL;
-
 	if (spk->Load(name))
 		return spk;
 
@@ -361,9 +369,6 @@ CAPI BOOL LAWINE_API LSpkGetImage(LHSPK spk, IMGPTR img, CONST POINT *view_pos)
 CAPI LHGRP LAWINE_API LGrpOpen(STRCPTR name)
 {
 	DGrp *grp = new DGrp;
-	if (!grp)
-		return NULL;
-
 	if (grp->Load(name))
 		return grp;
 
@@ -414,9 +419,6 @@ CAPI IMGCPTR LAWINE_API LGrpGetImage(LHGRP grp)
 CAPI LHFNT LAWINE_API LFntOpen(STRCPTR name, BOOL crypt)
 {
 	DFnt *fnt = new DFnt;
-	if (!fnt)
-		return NULL;
-
 	if (fnt->Load(name))
 		return fnt;
 
@@ -471,9 +473,6 @@ CAPI BOOL LAWINE_API LFntGetChar(LHFNT fnt, IMGPTR img, BYTE ch, INT style)
 CAPI LHSMK LAWINE_API LSmkOpen(STRCPTR name)
 {
 	DSmk *smk = new DSmk;
-	if (!smk)
-		return NULL;
-
 	if (smk->Load(name))
 		return smk;
 
@@ -583,9 +582,6 @@ CAPI LHSCM LAWINE_API LScmCreate(LHTILESET ts, INT def, CONST SIZE *size)
 		return NULL;
 
 	DScm *scm = new DScm;
-	if (!scm)
-		return NULL;
-
 	if (scm->Create(*ts, def, *size))
 		return scm;
 
@@ -596,9 +592,6 @@ CAPI LHSCM LAWINE_API LScmCreate(LHTILESET ts, INT def, CONST SIZE *size)
 CAPI LHSCM LAWINE_API LScmOpen(STRCPTR name, BOOL for_edit)
 {
 	DScm *scm = new DScm;
-	if (!scm)
-		return NULL;
-
 	if (scm->Load(name, for_edit))
 		return scm;
 
@@ -632,10 +625,10 @@ CAPI BOOL LAWINE_API LScmEditable(LHSCM scm)
 	return scm->GetEditable();
 }
 
-CAPI INT LAWINE_API LScmGetVersion(LHSCM scm)
+CAPI WORD LAWINE_API LScmGetVersion(LHSCM scm)
 {
 	if (!scm)
-		return L_SCM_VER_UNKNOWN;
+		return 0;
 
 	return scm->GetVersion();
 }
@@ -717,9 +710,6 @@ CAPI BOOL LAWINE_API LScmUpdate(LHSCM scm)
 CAPI LHTILESET LAWINE_API LTsOpen(INT era, BOOL no_cycling)
 {
 	DTileset *ts = new DTileset;
-	if (!ts)
-		return NULL;
-
 	if (ts->Load(era, no_cycling))
 		return ts;
 

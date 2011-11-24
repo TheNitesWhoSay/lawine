@@ -7,6 +7,7 @@
 /************************************************************************/
 
 #include <lawinedef.h>
+#include <array.hpp>
 #include "spk.hpp"
 #include "../global.hpp"
 
@@ -44,14 +45,13 @@ BOOL DSpk::Load(STRCPTR name)
 		return FALSE;
 	}
 
-	BUFPTR data = new BYTE[size];
+	DArray<BYTE> data(size);
 	BOOL ret = FALSE;
-	if (data && ::g_Archive.ReadFile(file, data, size) == size)
-		ret = Load(data, size);
-
-	if (!ret) {
-		delete [] data;
-		Clear();
+	if (::g_Archive.ReadFile(file, data, size) == size) {
+		if (Load(data, size))
+			ret = TRUE;
+		else
+			Clear();
 	}
 
 	::g_Archive.CloseFile(file);
@@ -141,8 +141,6 @@ BOOL DSpk::Load(BUFCPTR data, UINT size)
 
 	m_LayerNum = layer_num;
 	m_Layer = new DImage[m_LayerNum];
-	if (!m_Layer)
-		return FALSE;
 
 	for (INT i = 0; i < m_LayerNum; i++, frame_num++) {
 		LoadLayer(i, *frame_num, frame_head, data, size);

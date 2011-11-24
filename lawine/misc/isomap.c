@@ -595,48 +595,48 @@ static struct POS_QUENE *g_PosQueneTail;
 /************************************************************************/
 
 /* 公用函数 */
-static BOOL ValidateIsoMap(CONST ISOM_MAP *map, BOOL create);
-static BOOL CheckPosition(CONST ISOM_MAP *map, CONST POINT *pos);
-static VOID CalcCornerPosition(INT from, CONST POINT *base, POINT *corner);
-static VOID CalcLinkPosition(INT from, CONST POINT *base, POINT *link);
-static WORD GetCenterIsom(INT era, INT center);
-static WORD GetEdgeIsom(INT era, INT edge, INT shape);
-static INT Isom2Center(INT era, WORD isom);
-static BOOL Isom2EdgeShape(INT era, WORD isom, INT *edge, INT *shape);
-static INT Shape2Index(INT left, INT top, INT right, INT bottom);
+static BOOL validate_iso_map(CONST ISOM_MAP *map, BOOL create);
+static BOOL check_pos(CONST ISOM_MAP *map, CONST POINT *pos);
+static VOID calc_corner_pos(INT from, CONST POINT *base, POINT *corner);
+static VOID calc_link_pos(INT from, CONST POINT *base, POINT *link);
+static WORD get_center_isom(INT era, INT center);
+static WORD get_edge_isom(INT era, INT edge, INT shape);
+static INT isom_to_center(INT era, WORD isom);
+static BOOL isom_to_edge_shape(INT era, WORD isom, INT *edge, INT *shape);
+static INT shape_to_index(INT left, INT top, INT right, INT bottom);
 
 /* ISOM值生成相关函数 */
-static BOOL IsometricBrush(ISOM_MAP *map, INT brush, CONST POINT *pos);
-static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos);
-static BOOL UpdateIsom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos);
-static BOOL SetTilePosition(ISOM_MAP *map, CONST POINT *pos);
-static BOOL GetIsomShape(INT era, WORD isom, INT *low, INT *high, INT *shape_info);
-static WORD MatchShape(INT era, CONST INT *shape_info);
-static INT SearchBrushLink(INT era, INT brush_from, INT brush_to);
+static BOOL isometric_brush(ISOM_MAP *map, INT brush, CONST POINT *pos);
+static WORD isometric_link(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos);
+static BOOL update_isom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos);
+static BOOL set_tile_pos(ISOM_MAP *map, CONST POINT *pos);
+static BOOL get_isom_shape(INT era, WORD isom, INT *low, INT *high, INT *shape_info);
+static WORD match_shape(INT era, CONST INT *shape_info);
+static INT search_brush_link(INT era, INT brush_from, INT brush_to);
 
 /* TILE映射相关函数 */
-static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile);
-static VOID AdjustDirtyMap(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom);
-static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom);
-static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CONST POINT *pos, ISOM_TILE *tile);
-static CONST ISOM_DICT *LookupTile(INT era, CONST ISOM_TILE *tile);
-static INT GenMegaTileIndex(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, CONST ISOM_TILE *isom, LTILECPTR tile);
-static WORD MapEdgeTileType(INT era, INT low, INT high, INT edge, INT temp);
-static WORD MapEdgeHorAbuttal(INT era, INT low, INT high, INT edge, INT temp, WORD *proj);
-static WORD MapEdgeVerAbuttal(INT era, INT low, INT high, INT edge, INT temp);
-static VOID ProjectAbuttal(CONST ISOM_MAP *map, ISOM_TILE *tile, INT from, WORD proj, CONST POINT *pos);
+static BOOL make_tile_map(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile);
+static VOID adjust_dirty_map(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom);
+static VOID update_tile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom);
+static VOID map_isom_tile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CONST POINT *pos, ISOM_TILE *tile);
+static CONST ISOM_DICT *lookup_tile(INT era, CONST ISOM_TILE *tile);
+static INT gen_mega_tile_index(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, CONST ISOM_TILE *isom, LTILECPTR tile);
+static WORD map_edge_tile_type(INT era, INT low, INT high, INT edge, INT temp);
+static WORD map_edge_hor_abuttal(INT era, INT low, INT high, INT edge, INT temp, WORD *proj);
+static WORD map_edge_ver_abuttal(INT era, INT low, INT high, INT edge, INT temp);
+static VOID project_abuttal(CONST ISOM_MAP *map, ISOM_TILE *tile, INT from, WORD proj, CONST POINT *pos);
 
 /* 坐标信息队列操作相关函数 */
-static BOOL InitPosQuene(CONST POINT *pos);
-static VOID ExitPosQuene(VOID);
-static BOOL PushPosQuene(CONST POINT *pos);
-static BOOL PopPosQuene(VOID);
-static CONST POINT *PeekPosQuene(VOID);
-static BOOL IsPosQueneEmpty(VOID);
+static BOOL init_pos_quene(CONST POINT *pos);
+static VOID exit_pos_quene(VOID);
+static BOOL push_pos_quene(CONST POINT *pos);
+static BOOL pop_pos_quene(VOID);
+static CONST POINT *peek_pos_quene(VOID);
+static BOOL is_pos_quene_empty(VOID);
 
 /************************************************************************/
 
-BOOL InitIsoMap(VOID)
+BOOL init_iso_map(VOID)
 {
 	INT i, shape;
 	CONST INT *order;
@@ -661,7 +661,7 @@ BOOL InitIsoMap(VOID)
 	return TRUE;
 }
 
-VOID ExitIsoMap(VOID)
+VOID exit_iso_map(VOID)
 {
 	/* 如还未初始化则什么都不做 */
 	if (!g_InitFlag)
@@ -678,7 +678,7 @@ VOID ExitIsoMap(VOID)
 	DVarClr(g_Shape2Index);
 }
 
-BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
+BOOL init_iso_era(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
 {
 	INT center, edge, shape, low, high;
 	UINT size;
@@ -839,7 +839,7 @@ BOOL InitIsoMapEra(INT era, CONST ISOM_DICT *tile_dict, UINT tile_num)
 	return TRUE;
 }
 
-VOID ExitIsoMapEra(INT era)
+VOID exit_iso_era(INT era)
 {
 	/* 参数有效性检查 */
 	if (!DBetween(era, 0, L_ERA_NUM))
@@ -859,7 +859,7 @@ VOID ExitIsoMapEra(INT era)
 	DVarClr(g_Isom2Center[era]);
 }
 
-BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
+BOOL create_iso_map(ISOM_MAP *map, BOOL new_map)
 {
 	INT i, j, row, line, center;
 	UINT size;
@@ -877,7 +877,7 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 		return FALSE;
 
 	/* 参数有效性检查 */
-	if (!ValidateIsoMap(map, TRUE))
+	if (!validate_iso_map(map, TRUE))
 		return FALSE;
 
 	row = CALC_ISOM_ROW(map->size.cx);
@@ -924,7 +924,7 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 
 	/* 填充结构设置 */
 	isom.pos = 0;
-	isom.isom = GetCenterIsom(map->era, map->def);
+	isom.isom = get_center_isom(map->era, map->def);
 	isom.unused = 0;
 
 	/* 以初始值填充每个ISOM菱形 */
@@ -937,7 +937,7 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 		}
 	}
 
-	center = Isom2Center(map->era, isom.isom);
+	center = isom_to_center(map->era, isom.isom);
 
 	index.type = param->center[center].type;
 	index.left_abut = param->center[center].abut;
@@ -947,14 +947,14 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 	index.up_abut = V_ABUT_NONE;
 	index.down_abut = V_ABUT_NONE;
 
-	dict = LookupTile(map->era, &index);
+	dict = lookup_tile(map->era, &index);
 	DAssert(dict && dict->group_no);
 
 	/* 以初始值填充每个TILE */
 	for (i = 0; i < map->size.cy; i++) {
 		for (j = 0; j < map->size.cx; j += 2) {
 			group = dict->group_no;
-			mega = GenMegaTileIndex(map->era, map->size.cx, i, dict, &index, tile);
+			mega = gen_mega_tile_index(map->era, map->size.cx, i, dict, &index, tile);
 			tile->mega_index = mega;
 			tile->group_no = group++;
 			tile++;
@@ -968,7 +968,7 @@ BOOL CreateIsoMap(ISOM_MAP *map, BOOL new_map)
 	return TRUE;
 }
 
-VOID DestroyIsoMap(ISOM_MAP *map)
+VOID destroy_iso_map(ISOM_MAP *map)
 {
 	if (!map)
 		return;
@@ -977,13 +977,13 @@ VOID DestroyIsoMap(ISOM_MAP *map)
 	map->isom = NULL;
 
 	DFree(map->tile);
-	map->isom = NULL;
+	map->tile = NULL;
 
 	DFree(map->dirty);
 	map->dirty = NULL;
 }
 
-BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
+BOOL brush_iso_map(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
 {
 	POINT pos;
 
@@ -992,7 +992,7 @@ BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
 		return FALSE;
 
 	/* ISOM地图参数有效性检查 */
-	if (!ValidateIsoMap(map, FALSE))
+	if (!validate_iso_map(map, FALSE))
 		return FALSE;
 
 	/* 画刷索引值即是中央地形，必须在允许值范围内 */
@@ -1020,10 +1020,10 @@ BOOL BrushIsoMap(ISOM_MAP *map, INT brush, CONST POINT *tile_pos)
 		return FALSE;
 
 	/* 等角画刷处理 */
-	return IsometricBrush(map, brush, &pos);
+	return isometric_brush(map, brush, &pos);
 }
 
-BOOL UpdateIsoMap(CONST ISOM_MAP *map)
+BOOL update_iso_map(CONST ISOM_MAP *map)
 {
 #ifndef NDEBUG
 	FILE *fp;
@@ -1038,7 +1038,7 @@ BOOL UpdateIsoMap(CONST ISOM_MAP *map)
 		return FALSE;
 
 	/* 参数有效性检查 */
-	if (!ValidateIsoMap(map, FALSE))
+	if (!validate_iso_map(map, FALSE))
 		return FALSE;
 
 	/* ISOM行列数计算 */
@@ -1053,13 +1053,13 @@ BOOL UpdateIsoMap(CONST ISOM_MAP *map)
 	/* 首先生成一张粗略的TILE映射表 */
 	for (pos.y = 0; pos.y < line; pos.y++) {
 		for (pos.x = 0; pos.x < row; pos.x++)
-			MakeTileMap(map, &pos, isom);
+			make_tile_map(map, &pos, isom);
 	}
 
 	/* 根据TILE映射表重新调整脏标志位图 */
 	for (pos.y = 0; pos.y < line; pos.y++) {
 		for (pos.x = 0; pos.x < row; pos.x++)
-			AdjustDirtyMap(map, &pos, isom);
+			adjust_dirty_map(map, &pos, isom);
 	}
 
 	/* 由于下面要用到随机数，因此在此初始化 */
@@ -1068,7 +1068,7 @@ BOOL UpdateIsoMap(CONST ISOM_MAP *map)
 	/* 修正上面生成的映射表的TILE类型，再查表找到实际对应的TILE */
 	for (pos.y = 0; pos.y < line; pos.y++) {
 		for (pos.x = 0; pos.x < row; pos.x++)
-			UpdateTile(map, &pos, isom);
+			update_tile(map, &pos, isom);
 	}
 
 #ifndef NDEBUG
@@ -1152,7 +1152,7 @@ BOOL UpdateIsoMap(CONST ISOM_MAP *map)
 
 /************************************************************************/
 
-static BOOL ValidateIsoMap(CONST ISOM_MAP *map, BOOL create)
+static BOOL validate_iso_map(CONST ISOM_MAP *map, BOOL create)
 {
 	INT row, line;
 
@@ -1180,7 +1180,7 @@ static BOOL ValidateIsoMap(CONST ISOM_MAP *map, BOOL create)
 	return TRUE;
 }
 
-static BOOL CheckPosition(CONST ISOM_MAP *map, CONST POINT *pos)
+static BOOL check_pos(CONST ISOM_MAP *map, CONST POINT *pos)
 {
 	DAssert(map && pos);
 
@@ -1193,7 +1193,7 @@ static BOOL CheckPosition(CONST ISOM_MAP *map, CONST POINT *pos)
 	return TRUE;
 }
 
-static VOID CalcCornerPosition(INT from, CONST POINT *base, POINT *corner)
+static VOID calc_corner_pos(INT from, CONST POINT *base, POINT *corner)
 {
 	DAssert(DBetween(from, 0, FROM_NUM) && base && corner);
 
@@ -1209,7 +1209,7 @@ static VOID CalcCornerPosition(INT from, CONST POINT *base, POINT *corner)
 	corner->y = IS_FROM_DIR(from, TOP) ? base->y - 1 : base->y;
 }
 
-static VOID CalcLinkPosition(INT from, CONST POINT *base, POINT *link)
+static VOID calc_link_pos(INT from, CONST POINT *base, POINT *link)
 {
 	DAssert(DBetween(from, 0, FROM_NUM) && base && link);
 
@@ -1225,7 +1225,7 @@ static VOID CalcLinkPosition(INT from, CONST POINT *base, POINT *link)
 	link->y = IS_FROM_DIR(from, TOP) ? base->y - 1 : base->y + 1;
 }
 
-static WORD GetCenterIsom(INT era, INT center)
+static WORD get_center_isom(INT era, INT center)
 {
 	DAssert(DBetween(era, 0, L_ERA_NUM) && g_EraInfo[era].init_flag);
 	DAssert(DBetween(center, 0, g_EraInfo[era].center_num));
@@ -1233,7 +1233,7 @@ static WORD GetCenterIsom(INT era, INT center)
 	return PARAM_TABLE[era].center[center].isom;
 }
 
-static WORD GetEdgeIsom(INT era, INT edge, INT shape)
+static WORD get_edge_isom(INT era, INT edge, INT shape)
 {
 	DAssert(DBetween(era, 0, L_ERA_NUM) && g_EraInfo[era].init_flag);
 	DAssert(DBetween(edge, 0, g_EraInfo[era].edge_num));
@@ -1242,7 +1242,7 @@ static WORD GetEdgeIsom(INT era, INT edge, INT shape)
 	return PARAM_TABLE[era].edge_start + edge * SHAPE_NUM + shape;
 }
 
-static INT Isom2Center(INT era, WORD isom)
+static INT isom_to_center(INT era, WORD isom)
 {
 	INT center;
 
@@ -1262,7 +1262,7 @@ static INT Isom2Center(INT era, WORD isom)
 	return center;
 }
 
-static BOOL Isom2EdgeShape(INT era, WORD isom, INT *edge, INT *shape)
+static BOOL isom_to_edge_shape(INT era, WORD isom, INT *edge, INT *shape)
 {
 	DAssert(edge && shape);
 	DAssert(DBetween(era, 0, L_ERA_NUM) && g_InitFlag);
@@ -1284,7 +1284,7 @@ static BOOL Isom2EdgeShape(INT era, WORD isom, INT *edge, INT *shape)
 	return TRUE;
 }
 
-static INT Shape2Index(INT left, INT top, INT right, INT bottom)
+static INT shape_to_index(INT left, INT top, INT right, INT bottom)
 {
 	INT shape;
 
@@ -1297,7 +1297,7 @@ static INT Shape2Index(INT left, INT top, INT right, INT bottom)
 	return g_Shape2Index[shape];
 }
 
-static BOOL IsometricBrush(ISOM_MAP *map, INT brush, CONST POINT *pos)
+static BOOL isometric_brush(ISOM_MAP *map, INT brush, CONST POINT *pos)
 {
 	INT from;
 	WORD isom;
@@ -1307,21 +1307,21 @@ static BOOL IsometricBrush(ISOM_MAP *map, INT brush, CONST POINT *pos)
 	DAssert(map && pos);
 
 	/* 位置队列初始化 */
-	if (!InitPosQuene(pos))
+	if (!init_pos_quene(pos))
 		return FALSE;
 
 	/* 先获取画刷对应的中央地形ISOM值 */
-	isom = GetCenterIsom(map->era, brush);
+	isom = get_center_isom(map->era, brush);
 
 	/* 更新画刷放下位置处的ISOM值 */
 	for_each_from (from)
-		UpdateIsom(map, isom, from, pos);
+		update_isom(map, isom, from, pos);
 
 	/* 必须使用广度优先 */
-	while (!IsPosQueneEmpty()) {
+	while (!is_pos_quene_empty()) {
 
 		/* 获取当前队首坐标 */
-		pos = PeekPosQuene();
+		pos = peek_pos_quene();
 		DAssert(pos);
 
 		/* 获取当前ISOM值 */
@@ -1336,26 +1336,26 @@ static BOOL IsometricBrush(ISOM_MAP *map, INT brush, CONST POINT *pos)
 		for_each_from (from) {
 
 			/* 连接地形匹配 */
-			update = IsometricLink(map, isom, from, pos);
+			update = isometric_link(map, isom, from, pos);
 			if (!update)
 				continue;
 
 			/* 计算变更了的ISOM菱形的坐标，放入待处理队列 */
-			CalcLinkPosition(from, pos, &link_pos);
-			if (!PushPosQuene(&link_pos)) {
-				ExitPosQuene();
+			calc_link_pos(from, pos, &link_pos);
+			if (!push_pos_quene(&link_pos)) {
+				exit_pos_quene();
 				return FALSE;
 			}
 		}
 
 		/* 处理完当前队首坐标，出队 */
-		DVerify(PopPosQuene());
+		DVerify(pop_pos_quene());
 	}
 
 	return TRUE;
 }
 
-static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
+static WORD isometric_link(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 {
 	INT opp, low, high, link_low, link_high, brush1, brush2, brush3, brush4;
 	WORD link, new_link;
@@ -1368,13 +1368,13 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	DAssert(map && pos && DBetween(from, 0, FROM_NUM));
 
 	/* 地图出界检查 */
-	if (!CheckPosition(map, pos))
+	if (!check_pos(map, pos))
 		return 0;
 
-	CalcCornerPosition(from, pos, &corner);
+	calc_corner_pos(from, pos, &corner);
 
 	/* 地图出界检查 */
-	if (!CheckPosition(map, &corner))
+	if (!check_pos(map, &corner))
 		return 0;
 
 	data = LOC_MAP_POS(map->isom, &corner, &map->size);
@@ -1391,17 +1391,17 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	link = tile[DIR1_OF_FROM(from)].isom;
 	DAssert(tile[DIR2_OF_FROM(from)].isom);
 
-	CalcLinkPosition(from, pos, &link_pos);
+	calc_link_pos(from, pos, &link_pos);
 
 	/* 地图出界检查 */
-	if (!CheckPosition(map, &link_pos))
+	if (!check_pos(map, &link_pos))
 		return 0;
 
-	if (!GetIsomShape(map->era, isom, &low, &high, shape))
+	if (!get_isom_shape(map->era, isom, &low, &high, shape))
 		return 0;
 
 	// TODO: 连接目标的ISOM值可能为0，需要处理!!
-	if (!GetIsomShape(map->era, link, &link_low, &link_high, link_shape)) {
+	if (!get_isom_shape(map->era, link, &link_low, &link_high, link_shape)) {
 		DAssert(FALSE);
 		return 0;
 	}
@@ -1443,8 +1443,8 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 		由于brush3和brush4一定是可连接的，所以只要从brush1建立向其中任意一个的连接关系，
 		选取其连接链上离brush1最近的一个地形作为另一个地形候补，填充原有的brush3和brush4即可。
 	*/
-	brush4 = SearchBrushLink(map->era, brush1, brush4);
-	brush3 = SearchBrushLink(map->era, brush2, brush3);
+	brush4 = search_brush_link(map->era, brush1, brush4);
+	brush3 = search_brush_link(map->era, brush2, brush3);
 
 	/* TODO: comment */
 	if (brush1 != brush2) {
@@ -1488,7 +1488,7 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 			BOTTOM_LEFT		LEFT	TOP			BOTTOM	RIGHT
 	*/
 	if (link_shape[DIR1_OF_FROM(opp)] != link_shape[DIR2_OF_FROM(opp)]) {
-		CalcCornerPosition(from, &link_pos, &corner);
+		calc_corner_pos(from, &link_pos, &corner);
 		if (!DBetween(corner.x, 0, CALC_ISOM_ROW(map->size.cx)))
 			link_shape[X_DIR_OF_FROM(from)] = link_shape[Y_DIR_OF_FROM(opp)];
 		if (!DBetween(corner.y, 0, CALC_ISOM_LINE(map->size.cy)))
@@ -1496,7 +1496,7 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	}
 
 	/* 如果修正后的连接形状对应的ISOM值与之前没发生改变，什么都不做 */
-	new_link = MatchShape(map->era, link_shape);
+	new_link = match_shape(map->era, link_shape);
 	if (new_link == link)
 		return 0;
 
@@ -1504,12 +1504,12 @@ static WORD IsometricLink(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 
 	/* 产生了新的ISOM值则以其更新画刷菱形 */
 	for_each_from (from)
-		UpdateIsom(map, new_link, from, &link_pos);
+		update_isom(map, new_link, from, &link_pos);
 
 	return new_link;
 }
 
-static BOOL UpdateIsom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
+static BOOL update_isom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 {
 	INT opp;
 	POINT corner;
@@ -1519,10 +1519,10 @@ static BOOL UpdateIsom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	DAssert(map && pos && DBetween(from, 0, FROM_NUM));
 
 	/* 计算指定方向上的角落菱形的坐标 */
-	CalcCornerPosition(from, pos, &corner);
+	calc_corner_pos(from, pos, &corner);
 
 	/* 设置TILE菱形位置 */
-	if (!SetTilePosition(map, &corner))
+	if (!set_tile_pos(map, &corner))
 		return FALSE;
 
 	data = LOC_MAP_POS(map->isom, &corner, &map->size);
@@ -1554,7 +1554,7 @@ static BOOL UpdateIsom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	return TRUE;
 }
 
-static BOOL SetTilePosition(ISOM_MAP *map, CONST POINT *pos)
+static BOOL set_tile_pos(ISOM_MAP *map, CONST POINT *pos)
 {
 	LISOMPTR data;
 	CONST WORD *tile_pos;
@@ -1562,7 +1562,7 @@ static BOOL SetTilePosition(ISOM_MAP *map, CONST POINT *pos)
 	DAssert(map && pos);
 
 	/* 出界检查 */
-	if (!CheckPosition(map, pos))
+	if (!check_pos(map, pos))
 		return FALSE;
 
 	/* 根据奇偶性设定位置值 */
@@ -1577,7 +1577,7 @@ static BOOL SetTilePosition(ISOM_MAP *map, CONST POINT *pos)
 	return TRUE;
 }
 
-static BOOL GetIsomShape(INT era, WORD isom, INT *low, INT *high, INT *shape_info)
+static BOOL get_isom_shape(INT era, WORD isom, INT *low, INT *high, INT *shape_info)
 {
 	INT center, edge, shape;
 	struct ERA_INFO *info;
@@ -1590,7 +1590,7 @@ static BOOL GetIsomShape(INT era, WORD isom, INT *low, INT *high, INT *shape_inf
 	*high = -1;
 	DMemSet(shape_info, -1, DIR_NUM * sizeof(INT));
 
-	center = Isom2Center(era, isom);
+	center = isom_to_center(era, isom);
 	if (center >= 0) {
 		*low = center;
 		*high = center;
@@ -1601,21 +1601,21 @@ static BOOL GetIsomShape(INT era, WORD isom, INT *low, INT *high, INT *shape_inf
 		return TRUE;
 	}
 
-	if (!Isom2EdgeShape(era, isom, &edge, &shape))
+	if (!isom_to_edge_shape(era, isom, &edge, &shape))
 		return FALSE;
 
 	param = &PARAM_TABLE[era];
 	info = &g_EraInfo[era];
 
 	/* 注意，连接处理时需要的是未经过上下关系反转处理的高低层地形，因此从PARAM_TABLE直接取 */
-	*low = Isom2Center(era, param->edge[edge].low);
-	*high = Isom2Center(era, param->edge[edge].high);
+	*low = isom_to_center(era, param->edge[edge].low);
+	*high = isom_to_center(era, param->edge[edge].high);
 
 	DMemCpy(shape_info, info->edge[edge].shape[shape], DIR_NUM * sizeof(INT));
 	return TRUE;
 }
 
-static WORD MatchShape(INT era, CONST INT *shape_info)
+static WORD match_shape(INT era, CONST INT *shape_info)
 {
 	INT brush1, brush2, edge, shape;
 	CONST struct ERA_INFO *info;
@@ -1644,7 +1644,7 @@ static WORD MatchShape(INT era, CONST INT *shape_info)
 
 	/* 如果各个位置上的值都相同，表明该ISOM菱形是中央地形 */
 	if (brush1 == brush2)
-		return GetCenterIsom(era, brush1);
+		return get_center_isom(era, brush1);
 
 	/* 如果两种地形不连通，认为无效 */
 	if (info->center[brush1].below == brush2)
@@ -1657,7 +1657,7 @@ static WORD MatchShape(INT era, CONST INT *shape_info)
 	/* 查表找到形状ID，进而得到ISOM值 */
 	for (shape = 0; shape < SHAPE_NUM; shape++) {
 		if (!DMemCmp(shape_info, info->edge[edge].shape[shape], DIR_NUM * sizeof(INT)))
-			return GetEdgeIsom(era, edge, shape);
+			return get_edge_isom(era, edge, shape);
 	}
 
 	/* 不存在的组合？理论上不可能走到这里 */
@@ -1665,7 +1665,7 @@ static WORD MatchShape(INT era, CONST INT *shape_info)
 	return 0;
 }
 
-static INT SearchBrushLink(INT era, INT brush_from, INT brush_to)
+static INT search_brush_link(INT era, INT brush_from, INT brush_to)
 {
 	INT center, next_brush;
 	CONST struct ERA_INFO *info;
@@ -1697,7 +1697,7 @@ static INT SearchBrushLink(INT era, INT brush_from, INT brush_to)
 	return next_brush;
 }
 
-static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
+static BOOL make_tile_map(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 {
 	INT from, center, low, high, edge, shape, temp;
 	WORD isom;
@@ -1724,7 +1724,7 @@ static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 	isom = data->left.isom;
 	DAssert(isom == data->top.isom);
 
-	center = Isom2Center(map->era, isom);
+	center = isom_to_center(map->era, isom);
 
 	tile_map.proj[LEFT_SIDE] = V_ABUT_NONE;
 	tile_map.proj[RIGHT_SIDE] = V_ABUT_NONE;
@@ -1742,7 +1742,7 @@ static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 
 	} else {
 
-		if (!Isom2EdgeShape(map->era, isom, &edge, &shape))
+		if (!isom_to_edge_shape(map->era, isom, &edge, &shape))
 			return FALSE;
 
 		info = &g_EraInfo[map->era];
@@ -1754,26 +1754,26 @@ static BOOL MakeTileMap(CONST ISOM_MAP *map, CONST POINT *pos, ISOM_TILE *tile)
 		for_each_from (from) {
 
 			temp = SHAPE_TABLE[shape].type[from];
-			tile_map.type[from] = MapEdgeTileType(map->era, low, high, edge, temp);
+			tile_map.type[from] = map_edge_tile_type(map->era, low, high, edge, temp);
 
 			temp = SHAPE_TABLE[shape].x_abut[from];
-			tile_map.x_abut[from] = MapEdgeHorAbuttal(map->era, low, high, edge, temp, tile_map.proj);
+			tile_map.x_abut[from] = map_edge_hor_abuttal(map->era, low, high, edge, temp, tile_map.proj);
 
 			temp = SHAPE_TABLE[shape].y_abut[SIDE_OF_FROM(from)];
-			tile_map.y_abut[from] = MapEdgeHorAbuttal(map->era, low, high, edge, temp, tile_map.proj);
+			tile_map.y_abut[from] = map_edge_hor_abuttal(map->era, low, high, edge, temp, tile_map.proj);
 
 			temp = SHAPE_TABLE[shape].y_abut[SIDE_OF_FROM(from)];
-			tile_map.z_abut[from] = MapEdgeVerAbuttal(map->era, low, high, edge, temp);
+			tile_map.z_abut[from] = map_edge_ver_abuttal(map->era, low, high, edge, temp);
 		}
 	}
 
 	/* 填写该画刷菱形对应的TILE索引 */
-	MapIsomTile(map, &tile_map, pos, tile);
+	map_isom_tile(map, &tile_map, pos, tile);
 
 	return TRUE;
 }
 
-static VOID AdjustDirtyMap(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom)
+static VOID adjust_dirty_map(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom)
 {
 	POINT coord;
 
@@ -1791,7 +1791,7 @@ static VOID AdjustDirtyMap(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TIL
 		SET_DIRTY(map->dirty, &coord, &map->size);
 }
 
-static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom)
+static VOID update_tile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *isom)
 {
 	WORD group, mega;
 	LTILEPTR tile;
@@ -1812,7 +1812,7 @@ static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *i
 	tile = map->tile + pos->x * 2 + map->size.cx * pos->y;
 
 	/* 查找对应的TILE编组序号 */
-	dict = LookupTile(map->era, isom);
+	dict = lookup_tile(map->era, isom);
 
 	if (!dict || !dict->group_no) {
 		DAssert(FALSE);
@@ -1821,7 +1821,7 @@ static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *i
 	}
 
 	/* 随机生成MegaTile序号 */
-	mega = GenMegaTileIndex(map->era, map->size.cx, pos->y, dict, isom, tile);
+	mega = gen_mega_tile_index(map->era, map->size.cx, pos->y, dict, isom, tile);
 
 	group = dict->group_no;
 
@@ -1836,7 +1836,7 @@ static VOID UpdateTile(CONST ISOM_MAP *map, CONST POINT *pos, CONST ISOM_TILE *i
 	tile->group_no = group;
 }
 
-static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CONST POINT *pos, ISOM_TILE *tile)
+static VOID map_isom_tile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CONST POINT *pos, ISOM_TILE *tile)
 {
 	INT from, opp, max_center_type;
 	POINT corner;
@@ -1845,16 +1845,16 @@ static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CO
 	ISOM_TILE *isom;
 
 	DAssert(map && tile_map && pos && tile);
-	DAssert(CheckPosition(map, pos));
+	DAssert(check_pos(map, pos));
 
 	max_center_type = g_EraInfo[map->era].max_center_type;
 
 	for_each_from (from) {
 
-		CalcCornerPosition(from, pos, &corner);
+		calc_corner_pos(from, pos, &corner);
 
 		/* 地图出界检查 */
-		if (!CheckPosition(map, &corner))
+		if (!check_pos(map, &corner))
 			continue;
 
 		isom = LOC_MAP_POS(tile, &corner, &map->size);
@@ -1890,13 +1890,13 @@ static VOID MapIsomTile(CONST ISOM_MAP *map, CONST struct TILE_MAP *tile_map, CO
 	}
 
 	/* ISOM菱形左下方向邻接角落菱形投影处理 */
-	ProjectAbuttal(map, tile, BOTTOM_LEFT, tile_map->proj[LEFT_SIDE], pos);
+	project_abuttal(map, tile, BOTTOM_LEFT, tile_map->proj[LEFT_SIDE], pos);
 
 	/* ISOM菱形右下方向邻接角落菱形投影处理 */
-	ProjectAbuttal(map, tile, RIGHT_BOTTOM, tile_map->proj[RIGHT_SIDE], pos);
+	project_abuttal(map, tile, RIGHT_BOTTOM, tile_map->proj[RIGHT_SIDE], pos);
 }
 
-static CONST ISOM_DICT *LookupTile(INT era, CONST ISOM_TILE *tile)
+static CONST ISOM_DICT *lookup_tile(INT era, CONST ISOM_TILE *tile)
 {
 	UINT i;
 	CONST ISOM_DICT *dict;
@@ -1915,7 +1915,7 @@ static CONST ISOM_DICT *LookupTile(INT era, CONST ISOM_TILE *tile)
 	return NULL;
 }
 
-static INT GenMegaTileIndex(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, CONST ISOM_TILE *isom, LTILECPTR tile)
+static INT gen_mega_tile_index(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, CONST ISOM_TILE *isom, LTILECPTR tile)
 {
 	INT i, often_num, seldom_num;
 	INT often_list[16];
@@ -1967,7 +1967,7 @@ static INT GenMegaTileIndex(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, C
 	return tile->mega_index;
 }
 
-static WORD MapEdgeTileType(INT era, INT low, INT high, INT edge, INT temp)
+static WORD map_edge_tile_type(INT era, INT low, INT high, INT edge, INT temp)
 {
 	CONST struct ERA_PARAM *param;
 	CONST struct ERA_INFO *info;
@@ -1997,7 +1997,7 @@ static WORD MapEdgeTileType(INT era, INT low, INT high, INT edge, INT temp)
 	}
 }
 
-static WORD MapEdgeHorAbuttal(INT era, INT low, INT high, INT edge, INT temp, WORD *proj)
+static WORD map_edge_hor_abuttal(INT era, INT low, INT high, INT edge, INT temp, WORD *proj)
 {
 	CONST struct ERA_PARAM *param;
 	CONST struct ERA_INFO *info;
@@ -2032,7 +2032,7 @@ static WORD MapEdgeHorAbuttal(INT era, INT low, INT high, INT edge, INT temp, WO
 	return 0;
 }
 
-static WORD MapEdgeVerAbuttal(INT era, INT low, INT high, INT edge, INT temp)
+static WORD map_edge_ver_abuttal(INT era, INT low, INT high, INT edge, INT temp)
 {
 	CONST struct ERA_PARAM *param;
 	CONST struct ERA_INFO *info;
@@ -2087,15 +2087,15 @@ static WORD MapEdgeVerAbuttal(INT era, INT low, INT high, INT edge, INT temp)
 	return (info->edge[edge].cliff || param->center[high].style == S_TILE) ? V_ABUT_NONE : V_ABUT_RIGHT;
 }
 
-static VOID ProjectAbuttal(CONST ISOM_MAP *map, ISOM_TILE *tile, INT from, WORD proj, CONST POINT *pos)
+static VOID project_abuttal(CONST ISOM_MAP *map, ISOM_TILE *tile, INT from, WORD proj, CONST POINT *pos)
 {
 	POINT corner;
 	ISOM_TILE *isom;
 
-	CalcCornerPosition(from, pos, &corner);
+	calc_corner_pos(from, pos, &corner);
 
 	/* 地图出界检查 */
-	if (!CheckPosition(map, &corner))
+	if (!check_pos(map, &corner))
 		return;
 
 	isom = LOC_MAP_POS(tile, &corner, &map->size);
@@ -2104,7 +2104,7 @@ static VOID ProjectAbuttal(CONST ISOM_MAP *map, ISOM_TILE *tile, INT from, WORD 
 	corner.y++;
 
 	/* 地图出界检查 */
-	if (!CheckPosition(map, &corner))
+	if (!check_pos(map, &corner))
 		return;
 
 	/* 填充对应的边缘模式（上方） */
@@ -2112,7 +2112,7 @@ static VOID ProjectAbuttal(CONST ISOM_MAP *map, ISOM_TILE *tile, INT from, WORD 
 	isom->up_abut = proj;
 }
 
-static BOOL InitPosQuene(CONST POINT *pos)
+static BOOL init_pos_quene(CONST POINT *pos)
 {
 	struct POS_QUENE *node;
 
@@ -2131,7 +2131,7 @@ static BOOL InitPosQuene(CONST POINT *pos)
 	return TRUE;
 }
 
-static VOID ExitPosQuene(VOID)
+static VOID exit_pos_quene(VOID)
 {
 	struct POS_QUENE *node, *next;
 
@@ -2145,7 +2145,7 @@ static VOID ExitPosQuene(VOID)
 	}
 }
 
-static BOOL PushPosQuene(CONST POINT *pos)
+static BOOL push_pos_quene(CONST POINT *pos)
 {
 	struct POS_QUENE *node;
 
@@ -2163,7 +2163,7 @@ static BOOL PushPosQuene(CONST POINT *pos)
 	return TRUE;
 }
 
-static BOOL PopPosQuene(VOID)
+static BOOL pop_pos_quene(VOID)
 {
 	struct POS_QUENE *node;
 
@@ -2181,7 +2181,7 @@ static BOOL PopPosQuene(VOID)
 	return TRUE;
 }
 
-static CONST POINT *PeekPosQuene(VOID)
+static CONST POINT *peek_pos_quene(VOID)
 {
 	DAssert(g_PosQueneTail);
 
@@ -2191,7 +2191,7 @@ static CONST POINT *PeekPosQuene(VOID)
 	return &g_PosQueneHead.next->pos;
 }
 
-static BOOL IsPosQueneEmpty(VOID)
+static BOOL is_pos_quene_empty(VOID)
 {
 	DAssert(g_PosQueneTail);
 

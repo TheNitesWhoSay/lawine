@@ -48,7 +48,7 @@ BOOL DGrp::Load(STRCPTR name)
 
 	BUFPTR data = new BYTE[size];
 	BOOL ret = FALSE;
-	if (data && ::g_Archive.ReadFile(file, data, size) == size)
+	if (::g_Archive.ReadFile(file, data, size) == size)
 		ret = Load(data, size);
 
 	if (!ret) {
@@ -125,8 +125,6 @@ BOOL DGrp::Load(BUFCPTR data, UINT size)
 
 	m_FrameNum = head->frame_num;
 	m_FrameList = new (DFrame *[m_FrameNum]);
-	if (!m_FrameList)
-		return FALSE;
 	DMemClr(m_FrameList, m_FrameNum * sizeof(DFrame *));
 
 	UINT pitch = head->width;
@@ -238,15 +236,18 @@ VOID DGrp::DFrame::DecodeLine(BUFCPTR line_begin, BUFCPTR line_end, BUFPTR buf)
 {
 	DAssert(line_begin && line_end && buf);
 
-	for (BUFCPTR p = line_begin; p < line_end; p++) {
+	UINT len;
+
+	for (BUFCPTR p = line_begin; p < line_end; buf += len) {
 		if (*p >= 0x80) {
-			buf += *p & 0x7f;
+			len = *p++ & 0x7f;
 		} else if (*p <= 0x40) {
-			for (INT i = *p; i > 0; i--)
-				*buf++ = *++p;
+			len = *p++;
+			DMemCpy(buf, p, len);
+			p += len;
 		} else {
-			for (INT i = *p++ & 0x3f; i > 0; i--)
-				*buf++ = *p;
+			len = *p++ & 0x3f;
+			DMemSet(buf, *p++, len);
 		}
 	}
 }

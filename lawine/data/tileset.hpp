@@ -30,6 +30,20 @@ public:
 		BYTE thumb[THUMB_PER_MEGA][THUMB_PER_MEGA];
 	};
 
+	DTileset();
+	~DTileset();
+
+	INT GetEra(VOID) CONST;
+	BOOL Load(INT era, BOOL no_cycling);
+	VOID Clear(VOID);
+	BOOL GetTile(LTILEIDX index, DImage &img);
+	BOOL GetDoodad(LTILEIDX index, DImage &img);
+	BOOL InitIsoMap(VOID);
+	VOID ExitIsoMap(VOID);
+	CONST DPalette *GetPalette(VOID) CONST;
+
+	BOOL GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST;
+
 //protected:
 public:
 
@@ -107,24 +121,6 @@ public:
 	struct DDDATA_BIN {
 		WORD doodad[DOODAD_REF_MAX];
 	};
-
-public:
-
-	DTileset();
-	~DTileset();
-
-	INT GetEra(VOID) CONST;
-	BOOL Load(INT era, BOOL no_cycling);
-	VOID Clear(VOID);
-	BOOL GetTile(LTILEIDX index, DImage &img);
-	BOOL GetDoodad(LTILEIDX index, DImage &img);
-	BOOL InitIsoMap(VOID);
-	VOID ExitIsoMap(VOID);
-	CONST DPalette *GetPalette(VOID) CONST;
-
-	BOOL GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST;
-
-//protected:
 
 	BOOL Load(INT era, STRCPTR name, BOOL no_cycling);
 	BOOL LoadCv5(STRCPTR cv5);

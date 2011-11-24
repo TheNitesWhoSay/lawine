@@ -23,43 +23,6 @@
 
 class DMpq {
 
-protected:
-
-	struct HEADER {
-		DWORD identifier;			// Must be ASCII "MPQ\x1a".
-		DWORD header_size;			// Size of the this header structure.
-		DWORD archive_size;			// Size of the whole archive, including the header.
-		WORD version;				// MoPaQ format version.
-		WORD sector_shift;			// Power of two exponent specifying the number of 512-byte disk sectors in each logical sector.
-		DWORD hash_table_offset;	// Offset to the beginning of the hash table, relative to the beginning of the archive.
-		DWORD block_table_offset;	// Offset to the beginning of the block table, relative to the beginning of the archive.
-		DWORD hash_num;				// Number of entries in the hash table. Must be a power of two, and must be less than 2^16.
-		DWORD block_num;			// Number of entries in the block table.
-	};
-
-	struct BLOCKENTRY {
-		DWORD offset;				// Offset of the beginning of the block, relative to the beginning of the archive.
-		DWORD data_size;			// Size of the block data in the archive.
-		DWORD file_size;			// Size of the file data stored in the block. Only valid if the block is a file.
-		DWORD flags;				// Bit mask of the flags for the block.
-	};
-
-	struct HASHENTRY {
-		DWORD hash_low;				// The hash of the file path, using method A.
-		DWORD hash_high;			// The hash of the file path, using method B.
-		LANGID language;			// The language of the file.
-		WORD platform;				// The platform the file is used for. 0 indicates the default platform.
-		DWORD block_index;			// The index into the block table of the file.
-	};
-
-	class DAccess;
-	class DSubFile;
-	class DFileBuffer;
-
-	typedef std::vector<BLOCKENTRY>			DBlockTable;
-	typedef std::list<DSubFile *>			DFileList;
-	typedef std::map<UINT, DFileBuffer *>	DBufferMap;
-
 public:
 
 	DMpq();
@@ -102,6 +65,41 @@ protected:
 
 	static CONST INT CRYPT_TABLE_INDEX = HASH_TYPE_NUM;
 	static CONST INT HASH_TABLE_NUM = CRYPT_TABLE_INDEX + 1;
+
+	struct HEADER {
+		DWORD identifier;			// Must be ASCII "MPQ\x1a".
+		DWORD header_size;			// Size of the this header structure.
+		DWORD archive_size;			// Size of the whole archive, including the header.
+		WORD version;				// MoPaQ format version.
+		WORD sector_shift;			// Power of two exponent specifying the number of 512-byte disk sectors in each logical sector.
+		DWORD hash_table_offset;	// Offset to the beginning of the hash table, relative to the beginning of the archive.
+		DWORD block_table_offset;	// Offset to the beginning of the block table, relative to the beginning of the archive.
+		DWORD hash_num;				// Number of entries in the hash table. Must be a power of two, and must be less than 2^16.
+		DWORD block_num;			// Number of entries in the block table.
+	};
+
+	struct BLOCKENTRY {
+		DWORD offset;				// Offset of the beginning of the block, relative to the beginning of the archive.
+		DWORD data_size;			// Size of the block data in the archive.
+		DWORD file_size;			// Size of the file data stored in the block. Only valid if the block is a file.
+		DWORD flags;				// Bit mask of the flags for the block.
+	};
+
+	struct HASHENTRY {
+		DWORD hash_low;				// The hash of the file path, using method A.
+		DWORD hash_high;			// The hash of the file path, using method B.
+		LANGID language;			// The language of the file.
+		WORD platform;				// The platform the file is used for. 0 indicates the default platform.
+		DWORD block_index;			// The index into the block table of the file.
+	};
+
+	class DAccess;
+	class DSubFile;
+	class DFileBuffer;
+
+	typedef std::vector<BLOCKENTRY>			DBlockTable;
+	typedef std::list<DSubFile *>			DFileList;
+	typedef std::map<UINT, DFileBuffer *>	DBufferMap;
 
 	BOOL Create(STRCPTR mpq_name, UINT hash_num);
 	BOOL Load(STRCPTR mpq_name);
@@ -208,16 +206,6 @@ protected:
 
 class DMpq::DFileBuffer {
 
-protected:
-
-	static CONST INT MAX_CACHE_SECTOR = 16;
-
-	struct CACHESECTOR {
-		UINT		sector;
-		UINT		size;
-		BUFPTR		data;
-	};
-
 public:
 
 	DFileBuffer();
@@ -233,6 +221,14 @@ public:
 	BOOL SetSector(UINT sector, BUFCPTR buf, UINT buf_size, UINT &size);
 
 protected:
+
+	static CONST INT MAX_CACHE_SECTOR = 16;
+
+	struct CACHESECTOR {
+		UINT		sector;
+		UINT		size;
+		BUFPTR		data;
+	};
 
 	BOOL Create(VOID);
 	BOOL ReadSector(UINT sector, BUFPTR buf, UINT size);

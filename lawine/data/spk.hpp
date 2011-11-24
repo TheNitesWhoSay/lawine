@@ -18,19 +18,6 @@
 
 class DSpk {
 
-protected:
-
-	struct FRAMEHEADER {
-		WORD hor_offset;
-		WORD ver_offset;
-		DWORD bmp_offset;
-	};
-
-	struct FRAMEINFO {
-		WORD width;
-		WORD height;
-	};
-
 public:
 
 	DSpk();
@@ -44,6 +31,17 @@ public:
 	CONST DImage *GetImage(INT layer) CONST;
 
 protected:
+
+	struct FRAMEHEADER {
+		WORD hor_offset;
+		WORD ver_offset;
+		DWORD bmp_offset;
+	};
+
+	struct FRAMEINFO {
+		WORD width;
+		WORD height;
+	};
 
 	BOOL Load(BUFCPTR data, UINT size);
 	BOOL LoadLayer(INT layer, WORD frame_num, CONST FRAMEHEADER *frame_head, BUFCPTR data, UINT size);

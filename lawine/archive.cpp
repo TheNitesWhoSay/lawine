@@ -29,9 +29,6 @@ DMpq *DArchive::UseArchive(STRCPTR mpq_name, UINT priority /* = 0U */)
 		return NULL;
 
 	DMpq *mpq = new DMpq;
-	if (!mpq)
-		return NULL;
-
 	if (!mpq->OpenArchive(mpq_name)) {
 		delete mpq;
 		return NULL;

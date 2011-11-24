@@ -23,6 +23,19 @@ public:
 
 	static CONST INT STYLE_NUM = 6;
 
+	DFnt();
+	~DFnt();
+
+	BOOL GetMaxSize(SIZE &size) CONST;
+	BOOL Load(STRCPTR name, BOOL crypt = TRUE);
+	VOID Clear(VOID);
+	BOOL SetTemplate(IMGCPTR temp);
+	BOOL GetCharSize(BYTE ch, SIZE &size) CONST;
+	BOOL GetChar(DImage &img, BYTE ch, INT style);
+
+	static BOOL Initialize(VOID);
+	static VOID Exit(VOID);
+
 protected:
 
 	struct HEADER {
@@ -39,23 +52,6 @@ protected:
 		BYTE hor_offset;		// horizontal offset of start painting position
 		BYTE ver_offset;		// vertical offset of start painting position
 	};
-
-public:
-
-	DFnt();
-	~DFnt();
-
-	BOOL GetMaxSize(SIZE &size) CONST;
-	BOOL Load(STRCPTR name, BOOL crypt = TRUE);
-	VOID Clear(VOID);
-	BOOL SetTemplate(IMGCPTR temp);
-	BOOL GetCharSize(BYTE ch, SIZE &size) CONST;
-	BOOL GetChar(DImage &img, BYTE ch, INT style);
-
-	static BOOL Initialize(VOID);
-	static VOID Exit(VOID);
-
-protected:
 
 	BOOL Load(BUFCPTR data, UINT size);
 	BOOL Decode(BYTE ch);
@@ -74,7 +70,7 @@ protected:
 	BUFPTR				m_CharBuf;
 	CONST CHARHEADER	*m_CharHeader;
 
-	static BUFPTR		s_Gid;			// font.gid数据缓冲
+	static BUFPTR		s_Gid;			// font.gid data buffer
 
 };
 

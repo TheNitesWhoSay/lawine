@@ -9,6 +9,7 @@
 #include <array.hpp>
 #include "mpq.hpp"
 #include "../misc/implode.h"
+#include "../misc/huffman.h"
 
 /************************************************************************/
 
@@ -81,8 +82,6 @@ BOOL DMpq::CreateArchive(STRCPTR mpq_name, UINT &max_hash_num)
 		return FALSE;
 
 	m_Access = new DAccess;
-	if (!m_Access)
-		return FALSE;
 
 	if (!Create(mpq_name, adjust_size)) {
 		Clear();
@@ -103,8 +102,6 @@ BOOL DMpq::OpenArchive(STRCPTR mpq_name)
 		return FALSE;
 
 	m_Access = new DAccess;
-	if (!m_Access)
-		return FALSE;
 
 	if (!Load(mpq_name)) {
 		Clear();
@@ -172,9 +169,6 @@ HANDLE DMpq::OpenFile(STRCPTR file_name)
 
 	DWORD key = CalcFileKey(file_name, *block);
 	DSubFile *sub = new DSubFile;
-	if (!sub)
-		return NULL;
-
 	if (!sub->Open(m_Access, hash->block_index, *block, key)) {
 		delete sub;
 		return NULL;
@@ -187,9 +181,11 @@ HANDLE DMpq::OpenFile(STRCPTR file_name)
 BOOL DMpq::CloseFile(HANDLE file)
 {
 	for (DFileList::iterator it = m_FileList.begin(); it != m_FileList.end(); ++it) {
-		if (*it != file)
+		DSubFile *sub = *it;
+		if (sub != file)
 			continue;
-		DVerify((*it)->Close());
+		DVerify(sub->Close());
+		delete sub;
 		m_FileList.erase(it);
 		return TRUE;
 	}
@@ -263,9 +259,6 @@ BOOL DMpq::NewFile(STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compres
 		return FALSE;
 
 	DSubFile *sub = new DSubFile;
-	if (!sub)
-		return FALSE;
-
 	if (!NewFile(sub, hash, block_idx, block, key, file_data)) {
 		delete sub;
 		return FALSE;
@@ -385,8 +378,6 @@ BOOL DMpq::SetBasePath(STRCPTR path)
 		return FALSE;
 
 	DArray<CHAR> str(size);
-	if (str.IsNull())
-		return FALSE;
 
 	if (DFile::GetFullPath(path, str, size) != size)
 		return FALSE;
@@ -425,9 +416,6 @@ BOOL DMpq::Create(STRCPTR mpq_name, UINT hash_num)
 
 	UINT hash_size = hash_num * sizeof(HASHENTRY);
 	m_HashTable = new HASHENTRY[hash_num];
-	if (!m_HashTable)
-		return FALSE;
-
 	DMemSet(m_HashTable, 0xff, hash_size);
 
 	HEADER header;
@@ -445,9 +433,6 @@ BOOL DMpq::Create(STRCPTR mpq_name, UINT hash_num)
 		return FALSE;
 
 	DArray<HASHENTRY> hash_table(hash_num);
-	if (hash_table.IsNull())
-		return FALSE;
-
 	DMemCpy(hash_table, m_HashTable, hash_size);
 
 	DWORD key = HashString(HASH_TABLE_KEY, HASH_FILE_KEY);
@@ -489,9 +474,6 @@ BOOL DMpq::Load(STRCPTR mpq_name)
 		return FALSE;
 
 	m_HashTable = new HASHENTRY[m_HashNum];
-	if (!m_HashNum)
-		return FALSE;
-
 	UINT size = m_HashNum * sizeof(HASHENTRY);
 	if (!m_Access->Read(m_HashTable, size))
 		return FALSE;
@@ -551,9 +533,6 @@ BOOL DMpq::AddFile(STRCPTR file_name, BOOL compress, BOOL encrypt, DFile &file)
 		return FALSE;
 
 	DSubFile *sub = new DSubFile;
-	if (!sub)
-		return FALSE;
-
 	if (!AddFile(sub, hash, block_idx, block, key, file)) {
 		delete sub;
 		return FALSE;
@@ -570,13 +549,11 @@ BOOL DMpq::AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKEN
 	if (!sub->Create(m_Access, block_idx, block, key))
 		return FALSE;
 
+	BOOL flag = TRUE;
 	UINT size = block.file_size;
 	UINT buf_size = 1 << (m_Access->SectorShift() + 3);
 	DArray<BYTE> rd_buf(buf_size);
-	if (rd_buf.IsNull())
-		return FALSE;
 
-	BOOL flag = TRUE;
 	for (UINT rd_size = 0; size && flag; size -= rd_size) {
 		rd_size = file.Read(rd_buf, buf_size);
 		if (!rd_size)
@@ -683,9 +660,6 @@ BOOL DMpq::Writeback(UINT hash_table_offset)
 		return FALSE;
 
 	DArray<HASHENTRY> hash_table(m_HashNum * sizeof(HASHENTRY));
-	if (hash_table.IsNull())
-		return FALSE;
-
 	DMemCpy(hash_table, m_HashTable, hash_size);
 
 	DWORD key = HashString(HASH_TABLE_KEY, HASH_FILE_KEY);
@@ -700,9 +674,6 @@ BOOL DMpq::Writeback(UINT hash_table_offset)
 		return FALSE;
 
 	DArray<BLOCKENTRY> block_table(m_BlockTable.size());
-	if (block_table.IsNull())
-		return FALSE;
-
 	DMemCpy(block_table, &m_BlockTable.front(), block_size);
 
 	key = HashString(BLOCK_TABLE_KEY, HASH_FILE_KEY);
@@ -1194,9 +1165,6 @@ BOOL DMpq::DSubFile::Create(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &
 		return FALSE;
 
 	DFileBuffer *buf = new DFileBuffer;
-	if (!buf)
-		return FALSE;
-
 	if (!buf->Create(archive, block, key)) {
 		DAssert(FALSE);
 		delete buf;
@@ -1226,9 +1194,6 @@ BOOL DMpq::DSubFile::Open(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &bl
 	if (!m_FileBuffer) {
 
 		DFileBuffer *buf = new DFileBuffer;
-		if (!buf)
-			return FALSE;
-
 		if (!buf->Open(archive, block, key)) {
 			DAssert(FALSE);
 			delete buf;
@@ -1392,7 +1357,7 @@ DMpq::DFileBuffer::DFileBuffer() :
 
 DMpq::DFileBuffer::~DFileBuffer()
 {
-
+	Clear();
 }
 
 DMpq::DAccess *DMpq::DFileBuffer::GetAccess(VOID) CONST
@@ -1428,11 +1393,8 @@ BOOL DMpq::DFileBuffer::Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD 
 	if (sector_num) {
 		if (!archive->Seek(block.offset))
 			return FALSE;
-		if (block.flags & BLOCK_COMP_MASK) {
+		if (block.flags & BLOCK_COMP_MASK)
 			m_OffTable = new DWORD[sector_num + 1];
-			if (!m_OffTable)
-				return FALSE;
-		}
 		m_Block = block;
 		m_Key = key;
 	} else {
@@ -1472,9 +1434,6 @@ BOOL DMpq::DFileBuffer::Open(DAccess *archive, CONST BLOCKENTRY &block, DWORD ke
 			return FALSE;
 
 		DWORD *off_table = new DWORD[sector_num + 1];
-		if (!off_table)
-			return FALSE;
-
 		UINT size = (sector_num + 1) * sizeof(DWORD);
 		if (!archive->Read(off_table, size)) {
 			delete [] off_table;
@@ -1534,9 +1493,6 @@ BUFCPTR DMpq::DFileBuffer::GetSector(UINT sector, UINT &size)
 
 	DAssert(size);
 	BUFPTR data = new BYTE[size];
-	if (!data)
-		return FALSE;
-
 	if (!ReadSector(sector, data, size)) {
 		delete [] data;
 		return NULL;
@@ -1599,8 +1555,6 @@ BOOL DMpq::DFileBuffer::SetSector(UINT sector, BUFCPTR buf, UINT buf_size, UINT 
 	// 必要时加密
 	if (m_Block.flags & BLOCK_ENCRYPT) {
 		DArray<DWORD> off_table(m_SectorNum + 1);
-		if (off_table.IsNull())
-			return FALSE;
 		DMemCpy(off_table, m_OffTable, tab_size);
 		EncryptData(off_table, tab_size, m_Key - 1);
 		if (!m_Access->Write(off_table, tab_size))
@@ -1666,8 +1620,6 @@ BOOL DMpq::DFileBuffer::ReadSector(UINT sector, BUFPTR buf, UINT size)
 				DecryptData(buf, size, m_Key + sector);
 		} else {
 			DArray<BYTE> data(data_size);
-			if (data.IsNull())
-				return FALSE;
 			if (!m_Access->Read(data, data_size))
 				return FALSE;
 			if (m_Block.flags & BLOCK_ENCRYPT)
@@ -1761,15 +1713,30 @@ BOOL DMpq::DFileBuffer::Compress(UINT sector, BUFCPTR src, UINT src_size, BUFPTR
 	DAssert(m_Block.flags & BLOCK_COMP_MASK);
 	DAssert(dest_size <= (1U << SectorShift()));
 
+	INT dict;
+
+	// set dictionary size follow the storm.dll's way
+	switch (src_size / 0x600) {
+	case 0:
+		dict = IMPLODE_DICT_1K;
+		break;
+	case 1:
+		dict = IMPLODE_DICT_2K;
+		break;
+	default:
+		dict = IMPLODE_DICT_4K;
+		break;
+	}
+
 	if (m_Block.flags & BLOCK_IMPLODE)
-		return implode(IMPLODE_BINARY, IMPLODE_DICT_2K, src, src_size, dest, &dest_size);
+		return implode(IMPLODE_BINARY, dict, src, src_size, dest, &dest_size);
 
 	if (m_Block.flags & BLOCK_COMPRESS) {
 
 		*dest++ = COMP_IMPLODE;
 		dest_size--;
 
-		if (!implode(IMPLODE_BINARY, IMPLODE_DICT_2K, src, src_size, dest, &dest_size))
+		if (!implode(IMPLODE_BINARY, dict, src, src_size, dest, &dest_size))
 			return FALSE;
 
 		dest_size++;
@@ -1802,7 +1769,8 @@ BOOL DMpq::DFileBuffer::Decompress(UINT sector, BUFCPTR src, UINT src_size, BUFP
 				if (!explode(src, src_size, dest, &dest_size))
 					return FALSE;
 			} else if (comp1 & COMP_HUFFMAN) {
-				DAssert(FALSE);
+				if (!huff_decode(src, src_size, dest, &dest_size))
+					return FALSE;
 			} else {
 				DAssert(FALSE);
 				return FALSE;

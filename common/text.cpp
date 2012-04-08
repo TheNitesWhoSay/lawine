@@ -147,9 +147,6 @@ STRPTR DText::AllocData(STRCPTR data, UINT len /* = 0U */)
 		len = DStrLen(data);
 
 	STRPTR buf = new CHAR[len + 1];
-	if (!buf)
-		return NULL;
-
 	DStrCpyN(buf, data, len);
 	buf[len] = '\0';
 	return buf;

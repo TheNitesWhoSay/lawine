@@ -34,23 +34,76 @@ public:
 	~DTileset();
 
 	INT GetEra(VOID) CONST;
-	BOOL Load(INT era, BOOL no_cycling);
+	BOOL Load(INT era);
 	VOID Clear(VOID);
-	BOOL GetTile(LTILEIDX index, DImage &img);
-	BOOL GetDoodad(LTILEIDX index, DImage &img);
+	BOOL GetTile(BOOL no_cycling, LTILEIDX index, DImage &img) CONST;
+	BOOL GetDoodad(BOOL no_cycling, LTILEIDX index, DImage &img) CONST;
+	CONST DPalette *GetPalette(BOOL no_cycling) CONST;
+	BOOL GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST;
 	BOOL InitIsoMap(VOID);
 	VOID ExitIsoMap(VOID);
-	CONST DPalette *GetPalette(VOID) CONST;
-
-	BOOL GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST;
 
 //protected:
 public:
 
+	static CONST INT CV5_TILE_GROUP_NUM = 1024;
+	static CONST INT DOODAD_REF_MAX = 256;
+	static CONST INT DOODAD_NUM_MAX = 512;
+
+	struct DDDATA_BIN {
+		WORD doodad[DOODAD_REF_MAX];
+	};
+
+	class DCoreData;
+
+	BOOL Load(VOID);
+	BOOL LoadDddata(HANDLE file, UINT ddnum);
+
+	INT				m_Era;
+	DDDATA_BIN		*m_Doodad;
+	DCoreData		*m_CcData;
+	DCoreData		*m_NcData;
+
+};
+
+/************************************************************************/
+
+class DTileset::DCoreData {
+
+public:
+
+	DCoreData();
+	~DCoreData();
+
+	BOOL Load(STRCPTR path);
+	VOID Clear(VOID);
+	BOOL GenerateThumb(VOID);
+	BOOL GetTile(LTILEIDX index, DImage &img) CONST;
+	BOOL GetDoodad(LTILEIDX index, DImage &img) CONST;
+	CONST DPalette *GetPalette(VOID) CONST;
+	UINT GetIsomDict(ISOM_DICT *dict) CONST;
+	BOOL GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST;
+
+protected:
+
+	BOOL LoadCv5(STRCPTR cv5);
+	BOOL LoadVf4(STRCPTR vf4);
+	BOOL LoadVx4(STRCPTR vx4);
+	BOOL LoadVr4(STRCPTR vr4);
+	BOOL LoadWpe(STRCPTR wpe);
+	BOOL LoadCv5(HANDLE file, UINT tile_num, UINT dd_num);
+	BOOL LoadCv5Dd(HANDLE file, UINT dd_num);
+	BOOL LoadVf4(HANDLE file, UINT mega_num);
+	BOOL LoadVx4(HANDLE file, UINT mega_num);
+	BOOL GetMegaTile(BUFPTR buf, UINT pitch, UINT mega_no) CONST;
+	BOOL GetMiniTile(BUFPTR buf, UINT pitch, UINT mini_no, BOOL flipped) CONST;
+//	DImage *GetDoodad(LTILEIDX index);
+
+protected:
+
 	static CONST INT GROUP_MEGA_NUM = 16;
 	static CONST INT MINI_PER_MEGA = 4;
 	static CONST INT PIXEL_PER_MINI = 8;
-	static CONST INT DOODAD_REF_MAX = 256;
 
 	struct CV5_TILE {
 		WORD type;
@@ -118,30 +171,6 @@ public:
 		BYTE reserved;
 	};
 
-	struct DDDATA_BIN {
-		WORD doodad[DOODAD_REF_MAX];
-	};
-
-	BOOL Load(INT era, STRCPTR name, BOOL no_cycling);
-	BOOL LoadCv5(STRCPTR cv5);
-	BOOL LoadVf4(STRCPTR vf4);
-	BOOL LoadVx4(STRCPTR vx4);
-	BOOL LoadVr4(STRCPTR vr4);
-	BOOL LoadWpe(STRCPTR wpe);
-	BOOL LoadDddata(STRCPTR dddata);
-	BOOL GenerateThumb(VOID);
-	BOOL LoadCv5(HANDLE file, UINT tile_num, UINT dd_num);
-	BOOL LoadCv5Dd(HANDLE file, UINT dd_num);
-	BOOL LoadVf4(HANDLE file, UINT mega_num);
-	BOOL LoadVx4(HANDLE file, UINT mega_num);
-	BOOL LoadDddata(HANDLE file, UINT ddnum);
-	BOOL GetMegaTile(BUFPTR buf, UINT pitch, UINT mega_no);
-	BOOL GetMiniTile(BUFPTR buf, UINT pitch, UINT mini_no, BOOL flipped);
-//	DImage *GetDoodad(LTILEIDX index);
-
-	INT				m_Era;
-	BOOL			m_NoCycling;
-	DPalette		m_Palette;
 	UINT			m_Cv5TileNum;
 	UINT			m_Cv5DdNum;
 	UINT			m_Vf4Num;
@@ -149,11 +178,11 @@ public:
 	UINT			m_Vr4Num;
 	HANDLE			m_Vr4File;
 	BUFPTR			m_Thumb;
+	DPalette		m_Palette;
 	CV5_TILE		*m_Cv5Tile;
 	CV5_DOODAD		*m_Cv5Doodad;
 	VF4_MEGATILE	*m_Vf4;
 	VX4_MEGATILE	*m_Vx4;
-	DDDATA_BIN		*m_Doodad;
 
 };
 

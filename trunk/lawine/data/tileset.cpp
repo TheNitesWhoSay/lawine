@@ -9,16 +9,10 @@
 #include "tileset.hpp"
 #include "../global.hpp"
 
-#ifndef NDEBUG
-#include "pcx.hpp"
-#endif
-
 /************************************************************************/
 
-static CONST UINT CV5_TILE_GROUP_NUM = 1024U;
 static CONST UINT MEGATILE_MAX_NUM = 65536U;		// 0x10000
 static CONST UINT MINITILE_MAX_NUM = 32768U;		// 0x08000
-static CONST UINT DOODAD_MAX_NUM = 512U;
 
 static CONST STRCPTR ERA_PATH[L_ERA_NUM] = {
 	"tileset\\badlands",			// L_ERA_BADLANDS
@@ -35,19 +29,9 @@ static CONST STRCPTR ERA_PATH[L_ERA_NUM] = {
 
 DTileset::DTileset() :
 	m_Era(L_ERA_ERROR),
-	m_NoCycling(FALSE),
-	m_Cv5TileNum(0U),
-	m_Cv5DdNum(0U),
-	m_Vf4Num(0U),
-	m_Vx4Num(0U),
-	m_Vr4Num(0U),
-	m_Vr4File(NULL),
-	m_Cv5Tile(NULL),
-	m_Cv5Doodad(NULL),
-	m_Vf4(NULL),
-	m_Vx4(NULL),
 	m_Doodad(NULL),
-	m_Thumb(NULL)
+	m_CcData(NULL),
+	m_NcData(NULL)
 {
 
 }
@@ -59,179 +43,231 @@ DTileset::~DTileset()
 
 /************************************************************************/
 
-#ifndef NDEBUG
-
-CAPI RECT __declspec(dllexport) GetCv5(DTileset *ts, UINT grp_no)
-{
-	RECT r;
-	
-	r.left = ts->m_Cv5Tile[grp_no].left_abut;
-	r.top = ts->m_Cv5Tile[grp_no].top_abut;
-	r.right = ts->m_Cv5Tile[grp_no].right_abut;
-	r.bottom = ts->m_Cv5Tile[grp_no].bottom_abut;
-
-	return r;
-}
-
-CAPI INT __declspec(dllexport) GetCv52(DTileset *ts, UINT grp_no)
-{
-	return ts->m_Cv5Tile[grp_no].type;
-}
-CAPI DWORD __declspec(dllexport) GetCv53(DTileset *ts, UINT grp_no)
-{
-	return MAKELONG(ts->m_Cv5Tile[grp_no].up_abut, ts->m_Cv5Tile[grp_no].down_abut);
-}
-#endif
-
 INT DTileset::GetEra(VOID) CONST
 {
 	return m_Era;
 }
 
-BOOL DTileset::Load(INT era, BOOL no_cycling)
+BOOL DTileset::Load(INT era)
 {
 	if (!DBetween(era, 0, L_ERA_NUM))
 		return FALSE;
 
-	if (m_Cv5Tile || m_Vr4File)
+	if (m_CcData || m_NcData)
 		return FALSE;
 
-	if (!Load(era, ERA_PATH[era], no_cycling)) {
+	m_Era = era;
+
+	if (!Load()) {
 		Clear();
 		return FALSE;
 	}
 
-	m_Era = era;
-	m_NoCycling = no_cycling;
-
-#ifndef NDEBUG
-	DString nstr(ERA_PATH[era]);
-	nstr.Format("isom\\%s.txt", (STRCPTR)nstr.Middle(8));
-	FILE *fp = fopen(nstr, "w");
-	if (!fp)
-		return TRUE;
-#if 1
-	for (int i = 0; i < 1024; i += 2) {
-		CV5_TILE *p = &m_Cv5Tile[i];
-		fprintf(fp, "[%04X]\n", i);
-		fprintf(fp, "type=%04X\nunknown=%X\nbuildable=%X\nground_height=%X\n"
-			"unused1=%X\nleft_edge=%04X\ntop_edge=%04X\nright_edge=%04X\nbottom_edge=%04X\n"
-			"unused2=%04X\nedge_above=%04X\nunused3=%04X\nedge_below=%04X\n\n",
-			p->type, p->unknown, p->buildable, p->ground_height, p->unused1,
-			p->left_abut, p->top_abut, p->right_abut, p->bottom_abut,
-			p->unused2, p->up_abut, p->unused3, p->down_abut);
-
-		p = &m_Cv5Tile[i + 1];
-		fprintf(fp, "[%04X]\n", i + 1);
-		fprintf(fp, "type=%04X\nunknown=%X\nbuildable=%X\nground_height=%X\n"
-			"unused1=%X\nleft_edge=%04X\ntop_edge=%04X\nright_edge=%04X\nbottom_edge=%04X\n"
-			"unused2=%04X\nedge_above=%04X\nunused3=%04X\nedge_below=%04X\n\n",
-			p->type, p->unknown, p->buildable, p->ground_height, p->unused1,
-			p->left_abut, p->top_abut, p->right_abut, p->bottom_abut,
-			p->unused2, p->up_abut, p->unused3, p->down_abut);
-#if 1
-		if (i > 128)
-			continue;
-
-		DImage img;
-		IMAGE img2;
-		SIZE size = { 32 * 2, 32 * 16 };
-		if (!img.Create(size)) {
-			continue;
-		}
-		img2 = *img;
-		for (int j = 0; j < 16; j++) {
-			LTILEIDX idx = { j, i };
-			GetTile(idx, DImage(img2));
-			img2.data += 32;
-			idx.group_no++;
-			GetTile(idx, DImage(img2));
-			img2.data += img2.pitch * 32 - 32;
-		}
-		DString nstr(ERA_PATH[era]);
-		nstr.Format("%s\\(%04X)%04X-%04X.pcx", (STRCPTR)nstr.Middle(8), i/2, i, i+1);
-		DPcx pcx;
-		if (pcx.Create(DImage(*img), m_Palette))
-			pcx.Save(nstr);
-#endif
-	}
-#else
-	int type = 0;
-	int start = 0, end = 0;
-	for (int i = 0; i < 1024; i+=2) {
-
-		CV5_TILE *p = &m_Cv5Tile[i];
-		if (p->type == type)
-			continue;
-		if (type) {
-			end = i;
-			for (int j = start; j < end; j+=2) {
-				CV5_TILE *p = &m_Cv5Tile[j];
-				fprintf(fp, "\t%04X\t\t\t%02X\t\t", j, p->top_abut);
-			}
-			fputc('\n', fp);
-			for (int j = start; j < end; j+=2) {
-				CV5_TILE *p = &m_Cv5Tile[j];
-				fprintf(fp, "\t\t\t%02X\t%02X\t%02X\t", p->left_abut, p->type, p->right_abut);
-			}
-			fputc('\n', fp);
-			for (int j = start; j < end; j+=2) {
-				CV5_TILE *p = &m_Cv5Tile[j];
-				fprintf(fp, "\t\t\t\t%02X\t\t", p->bottom_abut);
-			}
-			fputc('\n', fp);
-		}
-		type = p->type;
-		start = i;
-	}
-#endif
-	fclose(fp);
-#elif 0
-	DString nstr(ERA_PATH[era]);
-//	nstr.Format("isom\\%s.txt", (STRCPTR)nstr.Middle(8));
-//	FILE *fp = fopen(nstr, "w");
-	for (int i = 0; i < m_Vf4Num; i++) {
-//		fprintf(fp, "[%04X]\n", i);
-//		for (int j = 0; j < MINI_PER_MEGA; j++) {
-//			for (int k = 0; k < MINI_PER_MEGA; k++) {
-//				VF4_MINITILE *p = &m_Vf4[i].minitile[j][k];
-//				fprintf(fp, "<%d,%d>\n", k, j);
-//				fprintf(fp, "walkable=%X\nlevel=%X\nblock_view=%X\nramp=%X\nunknown=%X\n",
-//					p->walkable, p->level, p->block_view, p->ramp, p->unknown);
-//			}
-//		}
-//		fputc('\n', fp);
-		DImage img;
-		SIZE size = { 32, 32 };
-		DVerify(img.Create(size));
-		DVerify(GetMegaTile(img.GetData(), img.GetPitch(), i));
-		nstr = ERA_PATH[era];
-		nstr.Format("%s\\MT\\MT_%04X.pcx", (STRCPTR)nstr.Middle(8), i);
-		DPcx pcx;
-		if (pcx.Create(img, m_Palette))
-			pcx.Save(nstr);
-	}
-//	fclose(fp);
-#endif
-
-#if 0
-	for (int i = 0; i < m_Vf4Num; i++) {
-		DImage img;
-		SIZE size = { 32, 32 };
-		DVerify(img.Create(size));
-		DVerify(GetMegaTile(img.GetData(), img.GetPitch(), i));
-		nstr = ERA_PATH[era];
-		nstr.Format("%s\\MT\\MT_%04X.pcx", (STRCPTR)nstr.Middle(8), i);
-		DPcx pcx;
-		if (pcx.Create(img, m_Palette))
-			pcx.Save(nstr);
-	}
-#endif
 	return TRUE;
 }
 
 VOID DTileset::Clear(VOID)
 {
+	delete m_NcData;
+	m_NcData = NULL;
+
+	delete m_CcData;
+	m_CcData = NULL;
+
+	delete [] m_Doodad;
+	m_Doodad = NULL;
+
+	m_Era = L_ERA_NUM;
+}
+
+BOOL DTileset::GetTile(BOOL no_cycling, LTILEIDX index, DImage &img) CONST
+{
+	if (!img.IsValid())
+		return FALSE;
+
+	if (no_cycling && m_NcData)
+		return m_NcData->GetTile(index, img);
+
+	if (m_CcData)
+		return m_CcData->GetTile(index, img);
+
+	return FALSE;
+}
+
+BOOL DTileset::GetDoodad(BOOL no_cycling, LTILEIDX index, DImage &img) CONST
+{
+	if (!img.IsValid())
+		return FALSE;
+
+	if (no_cycling && m_NcData)
+		return m_NcData->GetDoodad(index, img);
+
+	if (m_CcData)
+		return m_CcData->GetDoodad(index, img);
+
+	return FALSE;
+}
+
+CONST DPalette *DTileset::GetPalette(BOOL no_cycling) CONST
+{
+	if (no_cycling && m_NcData)
+		return m_NcData->GetPalette();
+
+	if (m_CcData)
+		return m_CcData->GetPalette();
+
+	return NULL;
+}
+
+BOOL DTileset::GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST
+{
+	DVarClr(thumb);
+
+	// 小地图总是使用无调色板动画的图像数据
+	if (m_NcData)
+		return m_NcData->GetThumb(index, thumb);
+
+	if (m_CcData)
+		return m_CcData->GetThumb(index, thumb);
+
+	return FALSE;
+}
+
+BOOL DTileset::InitIsoMap(VOID)
+{
+	if (!DBetween(m_Era, 0, L_ERA_NUM))
+		return FALSE;
+
+	if (!m_CcData)
+		return FALSE;
+
+	ISOM_DICT dict[CV5_TILE_GROUP_NUM];
+	DVarClr(dict);
+
+	UINT num = m_CcData->GetIsomDict(dict);
+	if (!num)
+		return FALSE;
+
+	return init_iso_era(m_Era, dict, num);
+}
+
+VOID DTileset::ExitIsoMap(VOID)
+{
+	if (DBetween(m_Era, 0, L_ERA_NUM))
+		exit_iso_era(m_Era);
+}
+
+/************************************************************************/
+
+BOOL DTileset::Load(VOID)
+{
+	DAssert(DBetween(m_Era, 0, L_ERA_NUM));
+
+	DString path(ERA_PATH[m_Era]);
+
+	m_CcData = new DCoreData;
+	if (!m_CcData->Load(path)) {
+		m_CcData->Clear();
+		return FALSE;
+	}
+
+	m_NcData = new DCoreData;
+	if (!m_NcData->Load(path + "-nc")) {
+		delete m_NcData;
+		m_NcData = NULL;
+		if (!m_CcData->GenerateThumb())
+			return FALSE;
+	} else {
+		if (!m_NcData->GenerateThumb())
+			return FALSE;
+	}
+
+	HANDLE file = ::g_Archive.OpenFile(path + "\\dddata.bin");
+	if (!file)
+		return FALSE;
+
+	BOOL ret = FALSE;
+	UINT size = ::g_Archive.GetFileSize(file);
+	if (size == DOODAD_NUM_MAX * sizeof(DDDATA_BIN))
+		ret = LoadDddata(file, DOODAD_NUM_MAX);
+
+	::g_Archive.CloseFile(file);
+	return ret;
+}
+
+BOOL DTileset::LoadDddata(HANDLE file, UINT ddnum)
+{
+	DAssert(file && ddnum);
+	DAssert(!m_Doodad);
+
+	DDDATA_BIN *dddata = new DDDATA_BIN[ddnum];
+	UINT size = ddnum * sizeof(DDDATA_BIN);
+
+	if (::g_Archive.ReadFile(file, dddata, size) != size) {
+		delete [] dddata;
+		return FALSE;
+	}
+
+	m_Doodad = dddata;
+	return TRUE;
+}
+
+/************************************************************************/
+
+DTileset::DCoreData::DCoreData() :
+	m_Cv5TileNum(0),
+	m_Cv5DdNum(0),
+	m_Vf4Num(0),
+	m_Vx4Num(0),
+	m_Vr4Num(0),
+	m_Thumb(NULL),
+	m_Vr4File(NULL),
+	m_Cv5Tile(NULL),
+	m_Cv5Doodad(NULL),
+	m_Vf4(NULL),
+	m_Vx4(NULL)
+{
+
+}
+
+DTileset::DCoreData::~DCoreData()
+{
+	Clear();
+}
+
+BOOL DTileset::DCoreData::Load(STRCPTR path)
+{
+	DString str(path);
+
+	if (!LoadCv5(str + ".cv5"))
+		return FALSE;
+
+	if (!LoadVf4(str + ".vf4"))
+		return FALSE;
+
+	if (!LoadVx4(str + ".vx4"))
+		return FALSE;
+
+	if (!LoadVr4(str + ".vr4"))
+		return FALSE;
+
+	if (!LoadWpe(str + ".wpe"))
+		return FALSE;
+
+	return TRUE;
+}
+
+VOID DTileset::DCoreData::Clear(VOID)
+{
+	m_Cv5TileNum = 0U;
+	m_Cv5DdNum = 0U;
+	m_Vf4Num = 0U;
+	m_Vx4Num = 0U;
+	m_Vr4Num = 0U;
+
+	delete [] m_Thumb;
+	m_Thumb = NULL;
+
 	delete [] m_Cv5Tile;
 	m_Cv5Tile = NULL;
 
@@ -244,30 +280,40 @@ VOID DTileset::Clear(VOID)
 	delete [] m_Vx4;
 	m_Vx4 = NULL;
 
-	delete [] m_Doodad;
-	m_Doodad = NULL;
-
-	delete [] m_Thumb;
-	m_Thumb = NULL;
-
 	if (m_Vr4File) {
 		::g_Archive.CloseFile(m_Vr4File);
 		m_Vr4File = NULL;
 	}
-
-	m_Cv5TileNum = 0U;
-	m_Cv5DdNum = 0U;
-	m_Vf4Num = 0U;
-	m_Vx4Num = 0U;
-	m_Vr4Num = 0U;
-
-	m_Era = L_ERA_NUM;
 }
 
-BOOL DTileset::GetTile(LTILEIDX index, DImage &img)
+BOOL DTileset::DCoreData::GenerateThumb(VOID)
 {
-	if (!img.IsValid())
+	if (m_Thumb)
+		return TRUE;
+
+	if (!m_Vr4File || !m_Vr4Num)
 		return FALSE;
+
+	if (::g_Archive.SeekFile(m_Vr4File, 0) == ERROR_POS)
+		return FALSE;
+
+	m_Thumb = new BYTE[m_Vr4Num];
+
+	for (UINT mini_no = 0; mini_no < m_Vr4Num; mini_no++) {
+
+		VR4_MINITILE mini_tile;
+		if (::g_Archive.ReadFile(m_Vr4File, &mini_tile, sizeof(mini_tile)) != sizeof(mini_tile))
+			return FALSE;
+
+		m_Thumb[mini_no] = mini_tile.bitmap[6][7];
+	}
+
+	return TRUE;
+}
+
+BOOL DTileset::DCoreData::GetTile(LTILEIDX index, DImage &img) CONST
+{
+	DAssert(img.IsValid());
 
 	if (index.group_no >= m_Cv5TileNum)
 		return GetDoodad(index, img);
@@ -284,10 +330,9 @@ BOOL DTileset::GetTile(LTILEIDX index, DImage &img)
 	return GetMegaTile(img.GetData(), img.GetPitch(), mega_no);
 }
 
-BOOL DTileset::GetDoodad(LTILEIDX index, DImage &img)
+BOOL DTileset::DCoreData::GetDoodad(LTILEIDX index, DImage &img) CONST
 {
-	if (!img.IsValid())
-		return FALSE;
+	DAssert(img.IsValid());
 
 	if (!m_Cv5DdNum || !m_Cv5Doodad)
 		return FALSE;
@@ -309,16 +354,20 @@ BOOL DTileset::GetDoodad(LTILEIDX index, DImage &img)
 	return GetMegaTile(img.GetData(), img.GetPitch(), mega_no);
 }
 
-BOOL DTileset::InitIsoMap(VOID)
+CONST DPalette *DTileset::DCoreData::GetPalette(VOID) CONST
 {
-	if (!DBetween(m_Era, 0, L_ERA_NUM))
-		return FALSE;
+	if (!m_Cv5Tile)
+		return NULL;
 
-	if (!m_Cv5Tile || !m_Cv5TileNum)
-		return FALSE;
+	if (!m_Palette.IsValid())
+		return NULL;
 
+	return &m_Palette;
+}
+
+UINT DTileset::DCoreData::GetIsomDict(ISOM_DICT *dict) CONST
+{
 	UINT num = 0U;
-	ISOM_DICT dict[CV5_TILE_GROUP_NUM];
 
 	for (UINT i = 0; i < m_Cv5TileNum; i++) {
 
@@ -344,30 +393,11 @@ BOOL DTileset::InitIsoMap(VOID)
 		dict[num++].mega_mask = mega_mask;
 	}
 
-	return init_iso_era(m_Era, dict, num);
+	return num;
 }
 
-VOID DTileset::ExitIsoMap(VOID)
+BOOL DTileset::DCoreData::GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST
 {
-	if (DBetween(m_Era, 0, L_ERA_NUM))
-		exit_iso_era(m_Era);
-}
-
-CONST DPalette *DTileset::GetPalette(VOID) CONST
-{
-	if (!m_Cv5Tile)
-		return NULL;
-
-	if (!m_Palette.IsValid())
-		return NULL;
-
-	return &m_Palette;
-}
-
-BOOL DTileset::GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST
-{
-	DVarClr(thumb);
-
 	if (!m_Thumb || !m_Cv5Tile || !m_Vx4 || !m_Vr4Num)
 		return FALSE;
 
@@ -397,43 +427,7 @@ BOOL DTileset::GetThumb(LTILEIDX index, MINI_THUMB &thumb) CONST
 
 /************************************************************************/
 
-BOOL DTileset::Load(INT era, STRCPTR name, BOOL no_cycling)
-{
-	DAssert(name && *name && DBetween(era, 0, L_ERA_NUM));
-
-	DString path(name);
-
-	if (no_cycling) {
-		path += "-nc";
-		if (!::g_Archive.FileExist(path + ".cv5"))
-			path = name;
-	}
-
-	if (!LoadCv5(path + ".cv5"))
-		return FALSE;
-
-	if (!LoadVf4(path + ".vf4"))
-		return FALSE;
-
-	if (!LoadVx4(path + ".vx4"))
-		return FALSE;
-
-	if (!LoadVr4(path + ".vr4"))
-		return FALSE;
-
-	if (!LoadWpe(path + ".wpe"))
-		return FALSE;
-
-	if (!LoadDddata(DString(name) + "\\dddata.bin"))
-		return FALSE;
-
-	if (!GenerateThumb())
-		return FALSE;
-
-	return TRUE;
-}
-
-BOOL DTileset::LoadCv5(STRCPTR cv5)
+BOOL DTileset::DCoreData::LoadCv5(STRCPTR cv5)
 {
 	DAssert(cv5);
 
@@ -462,7 +456,7 @@ BOOL DTileset::LoadCv5(STRCPTR cv5)
 	return ret;
 }
 
-BOOL DTileset::LoadVf4(STRCPTR vf4)
+BOOL DTileset::DCoreData::LoadVf4(STRCPTR vf4)
 {
 	DAssert(vf4);
 
@@ -487,7 +481,7 @@ BOOL DTileset::LoadVf4(STRCPTR vf4)
 	return ret;
 }
 
-BOOL DTileset::LoadVx4(STRCPTR vx4)
+BOOL DTileset::DCoreData::LoadVx4(STRCPTR vx4)
 {
 	DAssert(vx4);
 
@@ -512,7 +506,7 @@ BOOL DTileset::LoadVx4(STRCPTR vx4)
 	return ret;
 }
 
-BOOL DTileset::LoadVr4(STRCPTR vr4)
+BOOL DTileset::DCoreData::LoadVr4(STRCPTR vr4)
 {
 	DAssert(vr4);
 
@@ -534,7 +528,7 @@ BOOL DTileset::LoadVr4(STRCPTR vr4)
 	return TRUE;
 }
 
-BOOL DTileset::LoadWpe(STRCPTR wpe)
+BOOL DTileset::DCoreData::LoadWpe(STRCPTR wpe)
 {
 	DAssert(wpe);
 
@@ -558,48 +552,7 @@ BOOL DTileset::LoadWpe(STRCPTR wpe)
 	return ret;
 }
 
-BOOL DTileset::LoadDddata(STRCPTR dddata)
-{
-	DAssert(dddata);
-
-	HANDLE file = ::g_Archive.OpenFile(dddata);
-	if (!file)
-		return FALSE;
-
-	UINT size = ::g_Archive.GetFileSize(file);
-	if (size != DOODAD_MAX_NUM * sizeof(DDDATA_BIN)) {
-		::g_Archive.CloseFile(file);
-		return FALSE;
-	}
-
-	BOOL ret = LoadDddata(file, DOODAD_MAX_NUM);
-	::g_Archive.CloseFile(file);
-	return ret;
-}
-
-BOOL DTileset::GenerateThumb(VOID)
-{
-	DAssert(!m_Thumb);
-	DAssert(m_Vr4File && m_Vr4Num);
-
-	if (::g_Archive.SeekFile(m_Vr4File, 0) == ERROR_POS)
-		return FALSE;
-
-	m_Thumb = new BYTE[m_Vr4Num];
-
-	for (UINT mini_no = 0; mini_no < m_Vr4Num; mini_no++) {
-
-		VR4_MINITILE mini_tile;
-		if (::g_Archive.ReadFile(m_Vr4File, &mini_tile, sizeof(mini_tile)) != sizeof(mini_tile))
-			return FALSE;
-
-		m_Thumb[mini_no] = mini_tile.bitmap[6][7];
-	}
-
-	return TRUE;
-}
-
-BOOL DTileset::LoadCv5(HANDLE file, UINT tile_num, UINT dd_num)
+BOOL DTileset::DCoreData::LoadCv5(HANDLE file, UINT tile_num, UINT dd_num)
 {
 	DAssert(file && tile_num);
 
@@ -620,7 +573,7 @@ BOOL DTileset::LoadCv5(HANDLE file, UINT tile_num, UINT dd_num)
 	return TRUE;
 }
 
-BOOL DTileset::LoadCv5Dd(HANDLE file, UINT dd_num)
+BOOL DTileset::DCoreData::LoadCv5Dd(HANDLE file, UINT dd_num)
 {
 	DAssert(file);
 
@@ -641,7 +594,7 @@ BOOL DTileset::LoadCv5Dd(HANDLE file, UINT dd_num)
 	return TRUE;
 }
 
-BOOL DTileset::LoadVf4(HANDLE file, UINT mega_num)
+BOOL DTileset::DCoreData::LoadVf4(HANDLE file, UINT mega_num)
 {
 	DAssert(file && mega_num);
 
@@ -657,7 +610,7 @@ BOOL DTileset::LoadVf4(HANDLE file, UINT mega_num)
 	return TRUE;
 }
 
-BOOL DTileset::LoadVx4(HANDLE file, UINT mega_num)
+BOOL DTileset::DCoreData::LoadVx4(HANDLE file, UINT mega_num)
 {
 	DAssert(file && mega_num);
 
@@ -673,24 +626,7 @@ BOOL DTileset::LoadVx4(HANDLE file, UINT mega_num)
 	return TRUE;
 }
 
-BOOL DTileset::LoadDddata(HANDLE file, UINT ddnum)
-{
-	DAssert(file && ddnum);
-	DAssert(!m_Doodad);
-
-	DDDATA_BIN *dddata = new DDDATA_BIN[ddnum];
-	UINT size = ddnum * sizeof(DDDATA_BIN);
-
-	if (::g_Archive.ReadFile(file, dddata, size) != size) {
-		delete [] dddata;
-		return FALSE;
-	}
-
-	m_Doodad = dddata;
-	return TRUE;
-}
-
-BOOL DTileset::GetMegaTile(BUFPTR buf, UINT pitch, UINT mega_no)
+BOOL DTileset::DCoreData::GetMegaTile(BUFPTR buf, UINT pitch, UINT mega_no) CONST
 {
 	DAssert(buf && pitch >= L_TILE_SIZE);
 
@@ -712,7 +648,7 @@ BOOL DTileset::GetMegaTile(BUFPTR buf, UINT pitch, UINT mega_no)
 	return TRUE;
 }
 
-BOOL DTileset::GetMiniTile(BUFPTR buf, UINT pitch, UINT mini_no, BOOL flipped)
+BOOL DTileset::DCoreData::GetMiniTile(BUFPTR buf, UINT pitch, UINT mini_no, BOOL flipped) CONST
 {
 	DAssert(buf && pitch >= PIXEL_PER_MINI && m_Vr4File);
 

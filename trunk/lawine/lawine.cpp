@@ -8,6 +8,15 @@
 
 #include <lawine.h>
 #include "global.hpp"
+#include "data/mpq.hpp"
+#include "data/tbl.hpp"
+#include "data/pcx.hpp"
+#include "data/spk.hpp"
+#include "data/grp.hpp"
+#include "data/fnt.hpp"
+#include "data/smk.hpp"
+#include "data/scm.hpp"
+#include "data/tileset.hpp"
 #include "misc/color.h"
 #include "misc/smack.h"
 #include "misc/isomap.h"
@@ -707,10 +716,10 @@ CAPI BOOL LAWINE_API LScmUpdate(LHSCM scm)
 
 /************************************************************************/
 
-CAPI LHTILESET LAWINE_API LTsOpen(INT era, BOOL no_cycling)
+CAPI LHTILESET LAWINE_API LTsOpen(INT era)
 {
 	DTileset *ts = new DTileset;
-	if (ts->Load(era, no_cycling))
+	if (ts->Load(era))
 		return ts;
 
 	delete ts;
@@ -735,12 +744,24 @@ CAPI INT LAWINE_API LTsGetEra(LHTILESET ts)
 	return ts->GetEra();
 }
 
-CAPI BOOL LAWINE_API LTsGetTile(LHTILESET ts, LTILEIDX index, IMGPTR img)
+CAPI BOOL LAWINE_API LTsGetTile(LHTILESET ts, BOOL no_cycling, LTILEIDX index, IMGPTR img)
 {
 	if (!ts || !img)
 		return FALSE;
 
-	return ts->GetTile(index, DImage(*img));
+	return ts->GetTile(no_cycling, index, DImage(*img));
+}
+
+CAPI PALCPTR LAWINE_API LTsGetPalette(LHTILESET ts, BOOL no_cycling)
+{
+	if (!ts)
+		return NULL;
+
+	CONST DPalette *pal = ts->GetPalette(no_cycling);
+	if (!pal)
+		return NULL;
+
+	return pal->GetPalette();
 }
 
 CAPI BOOL LAWINE_API LTsInitIsoMap(LHTILESET ts)
@@ -758,18 +779,6 @@ CAPI BOOL LAWINE_API LTsExitIsoMap(LHTILESET ts)
 
 	ts->ExitIsoMap();
 	return TRUE;
-}
-
-CAPI PALCPTR LAWINE_API LTsGetPalette(LHTILESET ts)
-{
-	if (!ts)
-		return NULL;
-
-	CONST DPalette *pal = ts->GetPalette();
-	if (!pal)
-		return NULL;
-
-	return pal->GetPalette();
 }
 
 /************************************************************************/

@@ -30,37 +30,28 @@
 
 /************************************************************************/
 
-typedef HANDLE		LHFILE;
+typedef HANDLE			LHFILE;
 
 #if defined(LAWINE_EXPORTS) && defined(__cplusplus)
-#include "data/mpq.hpp"
-#include "data/tbl.hpp"
-#include "data/pcx.hpp"
-#include "data/spk.hpp"
-#include "data/grp.hpp"
-#include "data/fnt.hpp"
-#include "data/smk.hpp"
-#include "data/scm.hpp"
-#include "data/tileset.hpp"
-typedef DMpq		*LHMPQ;
-typedef DTbl		*LHTBL;
-typedef DPcx		*LHPCX;
-typedef DSpk		*LHSPK;
-typedef DGrp		*LHGRP;
-typedef DFnt		*LHFNT;
-typedef DSmk		*LHSMK;
-typedef DScm		*LHSCM;
-typedef DTileset	*LHTILESET;
+typedef class DMpq		*LHMPQ;
+typedef class DTbl		*LHTBL;
+typedef class DPcx		*LHPCX;
+typedef class DSpk		*LHSPK;
+typedef class DGrp		*LHGRP;
+typedef class DFnt		*LHFNT;
+typedef class DSmk		*LHSMK;
+typedef class DScm		*LHSCM;
+typedef class DTileset	*LHTILESET;
 #else
-typedef HANDLE		LHMPQ;
-typedef HANDLE		LHTBL;
-typedef HANDLE		LHPCX;
-typedef HANDLE		LHSPK;
-typedef HANDLE		LHGRP;
-typedef HANDLE		LHFNT;
-typedef HANDLE		LHSMK;
-typedef HANDLE		LHSCM;
-typedef HANDLE		LHTILESET;
+typedef HANDLE			LHMPQ;
+typedef HANDLE			LHTBL;
+typedef HANDLE			LHPCX;
+typedef HANDLE			LHSPK;
+typedef HANDLE			LHGRP;
+typedef HANDLE			LHFNT;
+typedef HANDLE			LHSMK;
+typedef HANDLE			LHSCM;
+typedef HANDLE			LHTILESET;
 #endif
 
 /************************************************************************/
@@ -160,13 +151,13 @@ CAPI extern LISOMCPTR LAWINE_API LScmIsoMapData(LHSCM scm);
 CAPI extern BOOL LAWINE_API LScmIsoBrush(LHSCM scm, INT brush, CONST POINT *tile_pos);
 CAPI extern BOOL LAWINE_API LScmUpdate(LHSCM scm);
 
-CAPI extern LHTILESET LAWINE_API LTsOpen(INT era, BOOL no_cycling);
+CAPI extern LHTILESET LAWINE_API LTsOpen(INT era);
 CAPI extern BOOL LAWINE_API LTsClose(LHTILESET ts);
 CAPI extern INT LAWINE_API LTsGetEra(LHTILESET ts);
-CAPI extern BOOL LAWINE_API LTsGetTile(LHTILESET ts, LTILEIDX index, IMGPTR img);
+CAPI extern BOOL LAWINE_API LTsGetTile(LHTILESET ts, BOOL no_cycling, LTILEIDX index, IMGPTR img);
+CAPI extern PALCPTR LAWINE_API LTsGetPalette(LHTILESET ts, BOOL no_cycling);
 CAPI extern BOOL LAWINE_API LTsInitIsoMap(LHTILESET ts);
 CAPI extern BOOL LAWINE_API LTsExitIsoMap(LHTILESET ts);
-CAPI extern PALCPTR LAWINE_API LTsGetPalette(LHTILESET ts);
 
 /************************************************************************/
 

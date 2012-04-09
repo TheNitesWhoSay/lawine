@@ -220,36 +220,33 @@ BOOL DImage::Destroy(VOID)
 	return TRUE;
 }
 
-BOOL DImage::Copy(CONST DImage &img, UINT pitch /* = 0U */, BOOL shrink /* = FALSE */)
+BOOL DImage::Copy(IMGCPTR img, UINT pitch /* = 0U */, BOOL shrink /* = FALSE */)
 {
-	return Copy(img.m_Image, pitch, shrink);
-}
+	if (!img || !img->data)
+		return FALSE;
 
-BOOL DImage::Copy(CONST IMAGE &img, UINT pitch /* = 0U */, BOOL shrink /* = FALSE */)
-{
 	if (pitch) {
-		if (pitch < img.pitch)
+		if (pitch < img->pitch)
 			return FALSE;
 		shrink = FALSE;
 	} else {
-		pitch = img.pitch;
+		pitch = img->pitch;
 	}
 
-	return Create(img.size, pitch, img.data, img.pitch * img.size.cy, shrink);
+	return Create(img->size, pitch, img->data, img->pitch * img->size.cy, shrink);
 }
 
-BOOL DImage::Blit(CONST DImage &img, CONST POINT &pos)
+BOOL DImage::Blit(IMGCPTR img, CONST POINT &pos)
 {
-	IMGCPTR p = img.GetImage();
-	if (!p)
+	if (!img)
 		return FALSE;
 
-	return Blit(*p, pos);
+	return Blit(img, pos, img->size);
 }
 
-BOOL DImage::Blit(CONST IMAGE &img, CONST POINT &pos)
+BOOL DImage::Blit(IMGCPTR img, CONST POINT &pos, CONST SIZE &size)
 {
-	if (!IsValid() || !img.data)
+	if (!IsValid() || !img || !img->data)
 		return FALSE;
 
 	if (pos.x >= m_Image.size.cx || pos.y >= m_Image.size.cy)
@@ -257,15 +254,15 @@ BOOL DImage::Blit(CONST IMAGE &img, CONST POINT &pos)
 
 	INT row;
 	if (pos.x >= 0)
-		row = DMin(img.size.cx, m_Image.size.cx - pos.x);
+		row = DMin(size.cx, m_Image.size.cx - pos.x);
 	else
-		row = DMin(m_Image.size.cx, img.size.cx + pos.x);
+		row = DMin(m_Image.size.cx, size.cx + pos.x);
 
 	INT line;
 	if (pos.y >= 0)
-		line = DMin(img.size.cy, m_Image.size.cy - pos.y);
+		line = DMin(size.cy, m_Image.size.cy - pos.y);
 	else
-		line = DMin(m_Image.size.cy, img.size.cy + pos.y);
+		line = DMin(m_Image.size.cy, size.cy + pos.y);
 
 	if (row < 0 || line < 0)
 		return FALSE;
@@ -273,26 +270,17 @@ BOOL DImage::Blit(CONST IMAGE &img, CONST POINT &pos)
 	if (!row || !line)
 		return TRUE;
 
-	BUFCPTR src = img.data + (pos.x < 0 ? -pos.x : 0) + (pos.y < 0 ? -pos.y : 0) * img.pitch;
+	BUFCPTR src = img->data + (pos.x < 0 ? -pos.x : 0) + (pos.y < 0 ? -pos.y : 0) * img->pitch;
 	BUFPTR dest = m_Image.data + (pos.x > 0 ? pos.x : 0) + (pos.y > 0 ? pos.y : 0) * m_Image.pitch;
-	for (INT i = 0; i < line; i++, src += img.pitch, dest += m_Image.pitch)
+	for (INT i = 0; i < line; i++, src += img->pitch, dest += m_Image.pitch)
 		DMemCpy(dest, src, row);
 
 	return TRUE;
 }
 
-BOOL DImage::Blit(CONST DImage &img, CONST POINT &pos, BYTE color_key)
+BOOL DImage::Blit(IMGCPTR img, CONST POINT &pos, BYTE color_key)
 {
-	IMGCPTR p = img.GetImage();
-	if (!p)
-		return FALSE;
-
-	return Blit(*p, pos, color_key);
-}
-
-BOOL DImage::Blit(CONST IMAGE &img, CONST POINT &pos, BYTE color_key)
-{
-	if (!IsValid() || !img.data)
+	if (!IsValid() || !img || !img->data)
 		return FALSE;
 
 	if (pos.x >= m_Image.size.cx || pos.y >= m_Image.size.cy)
@@ -300,15 +288,15 @@ BOOL DImage::Blit(CONST IMAGE &img, CONST POINT &pos, BYTE color_key)
 
 	INT row;
 	if (pos.x >= 0)
-		row = DMin(img.size.cx, m_Image.size.cx - pos.x);
+		row = DMin(img->size.cx, m_Image.size.cx - pos.x);
 	else
-		row = DMin(m_Image.size.cx, img.size.cx + pos.x);
+		row = DMin(m_Image.size.cx, img->size.cx + pos.x);
 
 	INT line;
 	if (pos.y >= 0)
-		line = DMin(img.size.cy, m_Image.size.cy - pos.y);
+		line = DMin(img->size.cy, m_Image.size.cy - pos.y);
 	else
-		line = DMin(m_Image.size.cy, img.size.cy + pos.y);
+		line = DMin(m_Image.size.cy, img->size.cy + pos.y);
 
 	if (row < 0 || line < 0)
 		return FALSE;
@@ -316,9 +304,9 @@ BOOL DImage::Blit(CONST IMAGE &img, CONST POINT &pos, BYTE color_key)
 	if (!row || !line)
 		return TRUE;
 
-	BUFCPTR src = img.data + (pos.x < 0 ? -pos.x : 0) + (pos.y < 0 ? -pos.y : 0) * img.pitch;
+	BUFCPTR src = img->data + (pos.x < 0 ? -pos.x : 0) + (pos.y < 0 ? -pos.y : 0) * img->pitch;
 	BUFPTR dest = m_Image.data + (pos.x > 0 ? pos.x : 0) + (pos.y > 0 ? pos.y : 0) * m_Image.pitch;
-	for (INT i = 0; i < line; i++, src += img.pitch, dest += m_Image.pitch) {
+	for (INT i = 0; i < line; i++, src += img->pitch, dest += m_Image.pitch) {
 		for (INT j = 0; j < row; j++) {
 			if (src[j])
 				dest[j] = src[j];

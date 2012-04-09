@@ -187,7 +187,7 @@ BOOL DSpk::LoadLayer(INT layer, WORD frame_num, CONST FRAMEHEADER *frame_head, B
 		POINT pos;
 		pos.x = frame_head->hor_offset % L_SPK_WIDTH;
 		pos.y = frame_head->ver_offset % L_SPK_HEIGHT;
-		if (!image->Blit(img, pos))
+		if (!image->Blit(&img, pos))
 			break;
 
 		ret = TRUE;

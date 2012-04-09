@@ -64,6 +64,8 @@ CONST UINT MINIMAP_DIM = 128U;
 
 CONST STRCPTR CHK_FILE_PATH = "staredit\\scenario.chk";
 
+CONST UINT VALID_DIM[] = { DIM_TINY, DIM_SMALL, DIM_MEDIUM, DIM_LARGE, DIM_HUGE };
+
 /************************************************************************/
 
 CONST DScm::VCODE DScm::VERIFY_CODE = {
@@ -431,7 +433,14 @@ BOOL DScm::Verify(VOID)
 	if (!m_Chk.GetSectionData(FOURCC_VCOD, DChk::ST_LASTONE, &vcode, sizeof(vcode)))
 		return FALSE;
 
-	if (DMemCmp(&vcode, &VERIFY_CODE, sizeof(vcode)))
+	BYTE vdata[256];
+	DInitRand();
+	for (INT i = 0; i < DCount(vdata); i++)
+		vdata[i] = DRandom();
+
+	DWORD vhash1 = CalcVerifyHash(&vcode, vdata, sizeof(vdata));
+	DWORD vhash2 = CalcVerifyHash(&VERIFY_CODE, vdata, sizeof(vdata));
+	if (vhash1 != vhash2)
 		return FALSE;
 
 	return TRUE;
@@ -514,7 +523,7 @@ BOOL DScm::ReadIsoMap(VOID)
 {
 	DAssert(!m_IsoMap.isom && !m_IsoMap.tile);
 
-	if (!create_iso_map(&m_IsoMap, DChk::ST_OVERRIDE))
+	if (!create_iso_map(&m_IsoMap, FALSE))
 		return FALSE;
 
 	UINT tile_size = m_Chk.GetSectionSize(FOURCC_TILE, DChk::ST_OVERRIDE);
@@ -663,12 +672,11 @@ BOOL DScm::CheckMapSize(CONST SIZE &size)
 {
 	BOOL w_ok = FALSE;
 	BOOL h_ok = FALSE;
-	UINT dim[] = { DIM_TINY, DIM_SMALL, DIM_MEDIUM, DIM_LARGE, DIM_HUGE };
 
-	for (INT i = 0; i < DCount(dim); i++) {
-		if (size.cx == dim[i])
+	for (INT i = 0; i < DCount(VALID_DIM); i++) {
+		if (size.cx == VALID_DIM[i])
 			w_ok = TRUE;
-		if (size.cy == dim[i])
+		if (size.cy == VALID_DIM[i])
 			h_ok = TRUE;
 		if (w_ok && h_ok)
 			return TRUE;
@@ -677,14 +685,11 @@ BOOL DScm::CheckMapSize(CONST SIZE &size)
 	return FALSE;
 }
 
-DWORD DScm::CalcVerifyHash(VCODE *vcode, UINT vcode_size, VCPTR vdata, UINT vdata_size)
+DWORD DScm::CalcVerifyHash(CONST VCODE *vcode, VCPTR vdata, UINT vdata_size)
 {
-	DAssert(vcode && vcode_size && vdata && vdata_size);
+	DAssert(vcode && vdata && vdata_size);
 
-	if (vcode_size <= sizeof(vcode->code))
-		return 0UL;
-
-	UINT op_num = vcode_size - sizeof(vcode->code);
+	UINT op_num = DCount(vcode->op);
 	DWORD hash = 0UL;
 	BUFCPTR ptr = static_cast<BUFCPTR>(vdata);
 

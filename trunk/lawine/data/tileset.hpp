@@ -106,36 +106,40 @@ protected:
 	static CONST INT PIXEL_PER_MINI = 8;
 
 	struct CV5_TILE {
-		WORD type;
+		WORD type;						/* TILE类型ID */
 		WORD unknown:4;
 		WORD buildable:4;
 		WORD ground_height:4;
-		WORD unused1:4;
-		WORD left_abut;
-		WORD top_abut;
-		WORD right_abut;
-		WORD bottom_abut;
+		WORD unused1:3;
+		WORD beacon:1;					/* 是否可以放置Start Location或者Beacon */
+		WORD left_abut;					/* 左侧邻接关系ID */
+		WORD top_abut;					/* 上方邻接关系ID */
+		WORD right_abut;				/* 右侧邻接关系ID */
+		WORD bottom_abut;				/* 下方邻接关系ID */
 		WORD unused2;
-		WORD up_abut;
+		WORD up_abut;					/* 上层邻接关系ID */
 		WORD unused3;
-		WORD down_abut;
+		WORD down_abut;					/* 下层邻接关系ID */
 		WORD megatile[GROUP_MEGA_NUM];
 	};
 
 	struct CV5_DOODAD {
-		WORD type;
+		WORD type;						/* 对于Doodad总为1 */
 		WORD unknown:4;
 		WORD buildable:4;
 		WORD ground_height:4;
-		WORD overlay_attr:4;
-		WORD overlay_id;
-		WORD unused1;
-		WORD string_no;
+		WORD sprite_overlay:1;			/* 使用Sprites.dat中的图像作为覆盖层 */
+		WORD unit_overlay:1;			/* 使用Units.dat中的图像作为覆盖层 */
+		WORD overlay_flipped:1;			/* 覆盖层图像左右颠倒存放 */
+		WORD beacon:1;					/* 是否可以放置Start Location或者Beacon */
+		WORD overlay_id;				/* 覆盖层图像ID（具体含义视sprite_overlay和unit_overlay而定） */
 		WORD unused2;
-		WORD dddata_no;
-		WORD width;
-		WORD height;
+		WORD group_name;				/* 在Staredit中显示的Doodad所属群落的名称（关联到stat_txt.tbl的索引号，需要先减1才能得到正确的索引号） */
 		WORD unused3;
+		WORD dddata_no;					/* 关联到dddata.bin的索引号 */
+		WORD width;						/* Doodad总宽度（TILE数，最大16） */
+		WORD height;					/* Doodad总高度（TILE数，高宽之积不能超过256） */
+		WORD unused4;
 		WORD megatile[GROUP_MEGA_NUM];
 	};
 

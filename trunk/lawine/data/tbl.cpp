@@ -67,24 +67,28 @@ BOOL DTbl::Analysis(HANDLE file)
 	if (::g_Archive.ReadFile(file, &str_num, sizeof(str_num)) != sizeof(str_num))
 		return FALSE;
 
-	for (UINT i = 0; i < str_num; i++) {
+	INT offset = sizeof(str_num);
 
-		WORD offset;
-		if (::g_Archive.SeekFile(file, sizeof(WORD) + i * sizeof(WORD)) == ERROR_POS)
-			break;
+	for (UINT i = 0; i < str_num; i++, offset += sizeof(WORD)) {
 
-		if (::g_Archive.ReadFile(file, &offset, sizeof(offset)) != sizeof(offset))
-			break;
 		if (::g_Archive.SeekFile(file, offset) == ERROR_POS)
 			break;
 
+		WORD str_off;
+		if (::g_Archive.ReadFile(file, &str_off, sizeof(str_off)) != sizeof(str_off))
+			break;
+		if (::g_Archive.SeekFile(file, str_off) == ERROR_POS)
+			break;
+
+		// TODO: 需要调查SC支持的TBL文件的最长字符串的字符数
 		CHAR rd_buf[1024];
 		DString string;
 		do {
-			if (!::g_Archive.ReadFile(file, rd_buf, sizeof(rd_buf) - 1))
+			if (!::g_Archive.ReadFile(file, rd_buf, 1023))
 				break;
+			rd_buf[1023] = '\0';
 			string.Append(rd_buf);
-		} while (DStrLen(rd_buf) < sizeof(rd_buf) - 1);
+		} while (DStrLen(rd_buf) >= sizeof(rd_buf) - 1);
 
 		m_Table.push_back(string);
 	}

@@ -95,7 +95,7 @@ protected:
 	VOID MakeLargeMinimap(CONST DTileset &ts, CONST SIZE &size);
 
 	static BOOL CheckMapSize(CONST SIZE &size);
-	static DWORD CalcVerifyHash(VCODE *vcode, UINT vcode_size, VCPTR vdata, UINT vdata_size);
+	static DWORD CalcVerifyHash(CONST VCODE *vcode, VCPTR vdata, UINT vdata_size);
 
 	BOOL			m_Valid;
 	BOOL			m_Edit;

@@ -119,6 +119,7 @@ enum SEEK_MODE {
 #define DMin(a, b)				(((a) < (b)) ? (a) : (b))
 #define DMax(a, b)				(((a) > (b)) ? (a) : (b))
 #define DRandSeed				srand
+#define DInitRand()				srand((UINT)time(NULL))
 #define DRandom					rand
 #define DTime()					time(NULL)
 #define DClock					clock

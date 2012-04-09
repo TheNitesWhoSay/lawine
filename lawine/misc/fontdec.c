@@ -99,10 +99,12 @@ BOOL decrypt_font(BUFPTR fnt_src, UINT size)
 
 /************************************************************************/
 
-/* rand_seed/random函数的实现等完全同于VC的CRT库函数srand与rand的实现，
-   这里提供一个复制的实现只是为了确保你使用VC CRT以外的库也能得到正确结果；当然，
-   你在VC下完全可以使用srand/rand来替代这些函数，实际上WIN版的星际争霸本身就是这么做的，
-   此外星际争霸在每次用完一个随机种子后都会用srand(time(NULL))来复位CRT的随机种子。 */
+/*
+	rand_seed/random函数的实现等完全同于VC的CRT库函数srand与rand的实现，
+	这里提供一个复制的实现只是为了确保你使用VC CRT以外的库也能得到正确结果；当然，
+	你在VC下完全可以使用srand/rand来替代这些函数，实际上WIN版的星际争霸本身就是这么做的，
+	此外星际争霸在每次用完一个随机种子后都会用srand(time(NULL))来复位CRT的随机种子。
+*/
 
 VOID rand_seed(UINT seed)
 {

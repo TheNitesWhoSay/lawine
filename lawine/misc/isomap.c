@@ -55,7 +55,7 @@
 	20.屋顶型地形(roof)		仅Roof为该类型地形。
 							它在生成垂直邻接关系的算法上有点特殊，与所有其他地形都不同。
 	21.悬崖(cliff)			两种分层型地形（即非覆盖型地形）的边缘处会形成悬崖。
-							而分层型地形与覆盖型地形、覆盖型地形与覆盖型地形的边缘则不会。
+							而分层型地形与覆盖型地形、覆盖型地形与覆盖型地形的边缘则不会出现。
 	22.TILE类型(type)		一个TILE的地形类型。它可能是某种中央地形或者边缘类型。
 							每一个TILE类型都有一个对应的唯一ID。
 	23.TILE位置(position)	表明是TILE菱形的上下左右的哪个角的常数。
@@ -471,11 +471,11 @@ enum FROM { LEFT_TOP, TOP_RIGHT, RIGHT_BOTTOM, BOTTOM_LEFT, FROM_NUM };
 
 /* 中央地形的类型枚举 */
 enum CENTER_STYLE {
-	S_NONE,									/* 无地形类型 */
+	S_NONE,									/* 非特殊地形 */
 	S_MATTED,								/* 带铺垫地形 */
 	S_DIFFUSE,								/* 扩散型地形 */
 	S_TILE,									/* 方砖型地形 */
-	S_STEP,									/* 平阶型地形 */
+	S_STEP,									/* 台阶型地形 */
 	S_ROOF,									/* 屋顶型地形 */
 };
 
@@ -1063,7 +1063,7 @@ BOOL update_iso_map(CONST ISOM_MAP *map)
 	}
 
 	/* 由于下面要用到随机数，因此在此初始化 */
-	DRandSeed((UINT)DTime());
+	DInitRand();
 
 	/* 修正上面生成的映射表的TILE类型，再查表找到实际对应的TILE */
 	for (pos.y = 0; pos.y < line; pos.y++) {
@@ -1429,10 +1429,7 @@ static WORD isometric_link(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	link_shape[DIR2_OF_FROM(opp)] = brush1;
 	link_shape[DIR1_OF_FROM(opp)] = brush2;
 
-	/*
-		如果修正后的连接形状不合法，则核心思想是根据现有形状信息，
-		找到两个可连接的画刷地形，用这两个画刷去填充那些不相容的菱形。
-	*/
+	/* 如果修正后的连接形状不合法，则核心思想是根据现有形状信息，找到两个可连接的画刷地形，用这两个画刷去填充那些不相容的菱形。*/
 
 	/* 注意这里的brush1-4，它们是按逆时针顺序排列的，所以对应关系为1-4、2-3。 */
 	brush3 = link_shape[DIR2_OF_FROM(from)];
@@ -1534,10 +1531,7 @@ static BOOL update_isom(ISOM_MAP *map, WORD isom, INT from, CONST POINT *pos)
 	/* 标志TILE菱形为脏 */
 	SET_DIRTY(map->dirty, &corner, &map->size);
 
-	/*
-		对画刷来说也许是左上角，但对ISOM菱形来说确是左上角菱形的右下角，
-		因此在此先求出from相对的方向
-	*/
+	/* 对画刷来说也许是左上角，但对ISOM菱形来说确是左上角菱形的右下角，因此在此先求出from相对的方向	*/
 	opp = OPPOSITE(from);
 
 	/*

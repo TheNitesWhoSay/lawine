@@ -41,12 +41,10 @@ public:
 	BOOL Create(CONST SIZE &size, UINT pitch, BUFCPTR data, UINT data_size, BOOL shrink = FALSE);
 	BOOL Create(CONST SIZE &size, UINT pitch = 0U, BOOL fill = TRUE, BYTE fill_color = '\0');
 	BOOL Destroy(VOID);
-	BOOL Copy(CONST DImage &img, UINT pitch = 0U, BOOL shrink = FALSE);
-	BOOL Copy(CONST IMAGE &img, UINT pitch = 0U, BOOL shrink = FALSE);
-	BOOL Blit(CONST DImage &img, CONST POINT &pos);
-	BOOL Blit(CONST IMAGE &img, CONST POINT &pos);
-	BOOL Blit(CONST DImage &img, CONST POINT &pos, BYTE color_key);
-	BOOL Blit(CONST IMAGE &img, CONST POINT &pos, BYTE color_key);
+	BOOL Copy(IMGCPTR img, UINT pitch = 0U, BOOL shrink = FALSE);
+	BOOL Blit(IMGCPTR img, CONST POINT &pos);
+	BOOL Blit(IMGCPTR img, CONST POINT &pos, CONST SIZE &size);
+	BOOL Blit(IMGCPTR img, CONST POINT &pos, BYTE color_key);
 	BOOL Clear(BYTE fill_color = '\0');
 	BOOL Offset(CONST POINT &pos, DImage &img) CONST;
 

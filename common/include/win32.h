@@ -79,6 +79,7 @@ typedef enum {
 #define DMin					min
 #define DMax					max
 #define DRandSeed				srand
+#define DInitRand()				srand((UINT)time(NULL))
 #define DRandom					rand
 #define DTime()					time(NULL)
 #define DClock					clock

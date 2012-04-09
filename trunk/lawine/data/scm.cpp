@@ -125,87 +125,6 @@ DScm::DScm() :
 
 DScm::~DScm()
 {
-#if 0
-	static BOOL b = FALSE;
-
-	if (!b) {
-
-		DMpq mpq;
-
-		UINT h = 8;
-		if (!mpq.CreateArchive("new.mpq", h))
-			return;
-
-		CHAR s[] =
-			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n"
-			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\r\n"
-			"cccccccccccccccccccccccccccccccccc\r\n"
-			"dddddddddddddddddddddddddddddddddd\r\n"
-			"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\r\n"
-			"ffffffffffffffffffffffffffffffffff\r\n"
-			"gggggggggggggggggggggggggggggggggg\r\n"
-			"0000000000000000000000000000000000\r\n"
-			"__________________________________\r\n"
-			"9999999999999999999999999999999999\r\n"
-			"^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n"
-			">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n"
-			"{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{\r\n"
-			"..................................\r\n"
-			";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\r\n"
-			"**********************************\r\n"
-			"@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n"
-			"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n"
-			"5555555555555555555555555555555555\r\n"
-			"++++++++++++++++++++++++++++++++++\r\n"
-			"//////////////////////////////////\r\n"
-			"&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\r\n"
-			"((((((((((((((((((((((((((((((((((\r\n"
-			"----------------------------------\r\n"
-			"||||||||||||||||||||||||||||||||||\r\n"
-			"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
-			"3333333333333333333333333333333333\r\n"
-			"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\r\n"
-			"==================================\r\n"
-			"##################################\r\n"
-			"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n"
-			"))))))))))))))))))))))))))))))))))\r\n"
-			"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]\r\n"
-			"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n"
-			"??????????????????????????????????\r\n"
-			"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n"
-			",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\r\n"
-			;
-
-		CHAR f[] = "aaa.txt\r\nok.txt\r\nbbb.txt\r\n1.bmp\r\n";
-
-		if (!mpq.NewFile("bbb.txt", (BUFCPTR)"!}", 2, TRUE, TRUE))
-			return;
-
-		if (!mpq.NewFile("aaa.txt", (BUFCPTR)s, strlen(s), TRUE, TRUE))
-			return;
-
-		if (!mpq.NewFile("(listfile)", (BUFCPTR)f, strlen(f), TRUE, TRUE))
-			return;
-
-		if (!mpq.NewFile("ok.txt", (BUFCPTR)"", 0, TRUE, TRUE))
-			return;
-
-		if (!mpq.AddFile("1.bmp", "c:\\x.bmp", TRUE, TRUE))
-			return;
-
-		mpq.CloseArchive();
-
-		if (mpq.OpenArchive("new.mpq"))
-		{
-			CHAR ch[100];
-			mpq.ReadFile(mpq.OpenFile("bbb.txt"), ch, 10);
-			puts(ch);
-		}
-
-		b = TRUE;
-	}
-#endif
-
 	Clear();
 }
 
@@ -433,6 +352,12 @@ BOOL DScm::Verify(VOID)
 	if (!m_Chk.GetSectionData(FOURCC_VCOD, DChk::ST_LASTONE, &vcode, sizeof(vcode)))
 		return FALSE;
 
+	// TODO: VCOD机制还没有完全明白，暂时不检查
+#if 0
+	if (DMemCmp(&vcode, &VERIFY_CODE, sizeof(vcode)))
+		return FALSE;
+#endif
+#if 0
 	BYTE vdata[256];
 	DInitRand();
 	for (INT i = 0; i < DCount(vdata); i++)
@@ -442,7 +367,7 @@ BOOL DScm::Verify(VOID)
 	DWORD vhash2 = CalcVerifyHash(&VERIFY_CODE, vdata, sizeof(vdata));
 	if (vhash1 != vhash2)
 		return FALSE;
-
+#endif
 	return TRUE;
 }
 
@@ -670,6 +595,14 @@ VOID DScm::MakeLargeMinimap(CONST DTileset &ts, CONST SIZE &size)
 
 BOOL DScm::CheckMapSize(CONST SIZE &size)
 {
+	// TODO: SC似乎支持不规则大小地图，先用该方法判断
+	if (size.cx < DIM_TINY || size.cx > DIM_HUGE)
+		return FALSE;
+	if (size.cy < DIM_TINY || size.cx > DIM_HUGE)
+		return FALSE;
+
+	return TRUE;
+#if 0
 	BOOL w_ok = FALSE;
 	BOOL h_ok = FALSE;
 
@@ -683,6 +616,7 @@ BOOL DScm::CheckMapSize(CONST SIZE &size)
 	}
 
 	return FALSE;
+#endif
 }
 
 DWORD DScm::CalcVerifyHash(CONST VCODE *vcode, VCPTR vdata, UINT vdata_size)

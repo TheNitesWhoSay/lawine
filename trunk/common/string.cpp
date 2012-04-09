@@ -48,6 +48,11 @@ DString::DString(CONST CoreString &cs)
 	m_String = cs;
 }
 
+STRCPTR DString::GetString(VOID) CONST
+{
+	return m_String.c_str();
+}
+
 CHAR DString::At(INT pos) CONST
 {
 	if (!DBetween(pos, 0, static_cast<INT>(m_String.length())))
@@ -310,7 +315,7 @@ DString &DString::Format(STRCPTR fmt, ...)
 
 DString::operator STRCPTR () CONST
 {
-	return m_String.c_str();
+	return GetString();
 }
 
 CHAR DString::operator [] (INT i) CONST

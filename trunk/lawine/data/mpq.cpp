@@ -37,7 +37,7 @@ CONST BYTE COMP_IMPLODE = 0x08;					// PKWARE DCL compression
 CONST BYTE COMP_ADPCM_MONO = 0x40;				// IMA ADPCM compression (mono)
 CONST BYTE COMP_ADPCM_STEREO = 0x80;			// IMA ADPCM compression (stereo)
 
-CONST UINT HASH_NUM_MIN = 0x00000004U;			// Minimum acceptable hash size
+CONST UINT HASH_NUM_MIN = 0x00000001U;			// Minimum acceptable hash size
 CONST UINT HASH_NUM_MAX = 0x00080000U;			// Maximum acceptable hash size
 
 CONST UINT PHYSICAL_SECTOR_SIZE = 1 << PHYSICAL_SECTOR_SHIFT;
@@ -343,7 +343,7 @@ UINT DMpq::SeekFile(HANDLE file, INT offset, SEEK_MODE mode /* = SM_BEGIN */)
 
 BOOL DMpq::Initialize(VOID)
 {
-	s_Locale = 0UL;
+	s_Locale = 0x0409U;
 	s_BashPath = DGetCwd();
 
 	DWORD seed = 0x00100001UL;
@@ -460,9 +460,6 @@ BOOL DMpq::Load(STRCPTR mpq_name)
 		return FALSE;
 
 	if (header.version != SUPPORT_VERSION)
-		return FALSE;
-
-	if (header.header_size != SUPPORT_HEADER_SIZE)
 		return FALSE;
 
 	if (header.hash_num < HASH_NUM_MIN || header.hash_num > HASH_NUM_MAX)
@@ -700,34 +697,38 @@ DMpq::HASHENTRY *DMpq::Lookup(STRCPTR file_name)
 
 	LANGID lang = DLoc2Lang(GetLocale());
 
-	HASHENTRY *neutral = NULL;
+	INT start = entry & (m_HashNum - 1);
+	INT index = start;
 
-	INT hash_num = m_HashNum;
+	HASHENTRY *best = NULL;
 
 	// 循环查找
-	while (hash_num > 0) {
+	do {
 
-		hash_num--;
+		HASHENTRY *hash = m_HashTable + index;
+		index = ++entry & (m_HashNum - 1);
 
-		HASHENTRY *hash = &m_HashTable[entry++ & (m_HashNum - 1)];
 		if (hash->block_index == HASH_ENTRY_EMPTY)
 			break;
-
+		if (hash->block_index == HASH_ENTRY_INVALID)
+			continue;
 		if (hash->hash_low != hash_low || hash_high != hash_high)
 			continue;
 
+		if (hash->language != lang && hash->language != LANG_NEUTRAL)
+			continue;
 		if (hash->platform != SUPPORT_PLATFORM)
 			continue;
 
-		if (hash->language == lang)
+		if (hash->language == lang && hash->platform == SUPPORT_PLATFORM)
 			return hash;
 
-		if (hash->language == LANG_NEUTRAL)
-			neutral = hash;
-	}
+		best = hash;
+
+	} while (index != start);
 
 	// 已经到达末尾
-	return neutral;
+	return best;
 }
 
 DMpq::HASHENTRY *DMpq::AllocHash(STRCPTR file_name)
@@ -744,14 +745,15 @@ DMpq::HASHENTRY *DMpq::AllocHash(STRCPTR file_name)
 
 	LANGID lang = DLoc2Lang(GetLocale());
 
-	INT hash_num = m_HashNum;
+	INT start = entry & (m_HashNum - 1);
+	INT index = start;
 
 	// 循环查找
-	while (hash_num > 0) {
+	do {
 
-		hash_num--;
+		HASHENTRY *hash = m_HashTable + index;
+		index = ++entry & (m_HashNum - 1);
 
-		HASHENTRY *hash = &m_HashTable[entry++ & (m_HashNum - 1)];
 		if (hash->block_index == HASH_ENTRY_EMPTY) {
 			hash->hash_low = hash_low;
 			hash->hash_high = hash_high;
@@ -762,16 +764,14 @@ DMpq::HASHENTRY *DMpq::AllocHash(STRCPTR file_name)
 
 		if (hash->hash_low != hash_low || hash_high != hash_high)
 			continue;
-
-		if (hash->platform != SUPPORT_PLATFORM)
-			continue;
-
-		if (hash->language != lang)
+		if (hash->language != lang || hash->platform != SUPPORT_PLATFORM)
 			continue;
 
 		// 文件已存在
 		return NULL;
-	}
+
+	} while (index != start);
+
 
 	// 已经到达末尾
 	return NULL;
@@ -1056,8 +1056,9 @@ BOOL DMpq::DAccess::Load(VOID)
 	UINT arc_offset = 0U;
 	HEADER header;
 
-	while (m_File.Read(&header, sizeof(header)) == sizeof(header)) {
-		if (header.identifier == MPQ_IDENTIFIER) {
+	// SC仅要求MPQ头大小不小于32字节即可
+	while (m_File.Read(&header, SUPPORT_HEADER_SIZE) == SUPPORT_HEADER_SIZE) {
+		if (header.identifier == MPQ_IDENTIFIER && header.header_size >= SUPPORT_HEADER_SIZE) {
 			found = TRUE;
 			break;
 		}

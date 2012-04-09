@@ -76,7 +76,7 @@ enum SEEK_MODE {
 #define ERROR_SIZE		0xffffffffUL
 #define ERROR_POS		0xffffffffUL
 
-#define LANG_NEUTRAL	0x00
+#define LANG_NEUTRAL	0x0000
 
 /************************************************************************/
 

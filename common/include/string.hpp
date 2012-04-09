@@ -29,6 +29,8 @@ public:
 	DString(STRCPTR s, INT len = -1);
 	DString(CHAR ch, INT count = 1);
 
+	STRCPTR GetString(VOID) CONST;
+
 	CHAR At(INT pos) CONST;
 	CHAR &At(INT pos);
 

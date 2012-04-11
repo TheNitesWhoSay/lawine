@@ -80,6 +80,13 @@ protected:
 		BYTE op[16];
 	};
 
+	struct VDATA {
+		BYTE unused1[8];
+		BYTE owner;
+		BYTE side;
+		BYTE unused2[26];
+	};
+
 	BOOL LoadMap(VOID);
 	BOOL Verify(VOID);
 	BOOL ReadVersion(VOID);

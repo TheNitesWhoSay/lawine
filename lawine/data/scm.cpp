@@ -60,6 +60,8 @@ CONST UINT DIM_MEDIUM = 128U;
 CONST UINT DIM_LARGE = 192U;
 CONST UINT DIM_HUGE = 256U;
 
+CONST UINT MAX_PLAYER = 12U;
+
 CONST UINT MINIMAP_DIM = 128U;
 
 CONST STRCPTR CHK_FILE_PATH = "staredit\\scenario.chk";
@@ -344,30 +346,39 @@ BOOL DScm::LoadMap(VOID)
 
 BOOL DScm::Verify(VOID)
 {
-	UINT size = m_Chk.GetSectionSize(FOURCC_VCOD, DChk::ST_LASTONE);
-	if (size != sizeof(VCODE))
-		return FALSE;
-
 	VCODE vcode;
+	UINT size = m_Chk.GetSectionSize(FOURCC_VCOD, DChk::ST_LASTONE);
+	if (size != sizeof(vcode))
+		return FALSE;
 	if (!m_Chk.GetSectionData(FOURCC_VCOD, DChk::ST_LASTONE, &vcode, sizeof(vcode)))
 		return FALSE;
 
-	// TODO: VCOD机制还没有完全明白，暂时不检查
-#if 0
-	if (DMemCmp(&vcode, &VERIFY_CODE, sizeof(vcode)))
+	BYTE owner[MAX_PLAYER];
+	size = m_Chk.GetSectionSize(FOURCC_OWNR, DChk::ST_LASTONE);
+	if (size != sizeof(owner))
 		return FALSE;
-#endif
-#if 0
-	BYTE vdata[256];
-	DInitRand();
-	for (INT i = 0; i < DCount(vdata); i++)
-		vdata[i] = DRandom();
+	if (!m_Chk.GetSectionData(FOURCC_OWNR, DChk::ST_LASTONE, owner, sizeof(owner)))
+		return FALSE;
+
+	BYTE side[MAX_PLAYER];
+	size = m_Chk.GetSectionSize(FOURCC_SIDE, DChk::ST_LASTONE);
+	if (size != sizeof(side))
+		return FALSE;
+	if (!m_Chk.GetSectionData(FOURCC_SIDE, DChk::ST_LASTONE, side, sizeof(side)))
+		return FALSE;
+
+	VDATA vdata[MAX_PLAYER];
+	DVarClr(vdata);
+	for (UINT i = 0U; i < MAX_PLAYER; i++) {
+		vdata[i].owner = owner[i];
+		vdata[i].side = side[i];
+	}
 
 	DWORD vhash1 = CalcVerifyHash(&vcode, vdata, sizeof(vdata));
 	DWORD vhash2 = CalcVerifyHash(&VERIFY_CODE, vdata, sizeof(vdata));
 	if (vhash1 != vhash2)
 		return FALSE;
-#endif
+
 	return TRUE;
 }
 

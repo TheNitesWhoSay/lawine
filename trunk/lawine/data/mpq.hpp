@@ -233,14 +233,15 @@ protected:
 	BOOL Create(VOID);
 	BOOL ReadSector(UINT sector, BUFPTR buf, UINT size);
 	BOOL WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &data_size);
-	BOOL Compress(UINT sector, BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size);
-	BOOL Decompress(UINT sector, BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size);
+	BOOL Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size);
+	BOOL Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size);
 
 	DAccess		*m_Access;
 	UINT		m_SectorNum;
 	DWORD		m_Key;
 	BLOCKENTRY	m_Block;
 	DWORD		*m_OffTable;
+	BUFPTR		m_SwapBuffer;
 
 	INT			m_CurCache;
 	CACHESECTOR	m_Cache[MAX_CACHE_SECTOR];

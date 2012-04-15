@@ -16,9 +16,6 @@
 
 /************************************************************************/
 
-#define MAX_ISOM_MAP_LINE		256
-#define MAX_ISOM_MAP_ROW		256
-
 #define CALC_ISOM_LINE(y)		((y) + 1)
 #define CALC_ISOM_ROW(x)		((x) / 2 + 1)
 

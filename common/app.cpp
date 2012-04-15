@@ -10,13 +10,13 @@
 
 /************************************************************************/
 
-#ifdef WIN32
+#ifdef _WIN32
 static DApp	*s_AppInstance = NULL;
 #endif
 
 /************************************************************************/
 
-#ifdef WIN32
+#ifdef _WIN32
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -74,7 +74,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
 /************************************************************************/
 
 DApp::DApp() :
-#ifdef WIN32
+#ifdef _WIN32
 	m_Wnd(NULL),
 #endif
 	m_RetCode(0)
@@ -110,7 +110,7 @@ BOOL DApp::Initialize(VOID)
 	if (!Check())
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 
 	if (!::QueryPerformanceFrequency(&m_Freq))
 		return FALSE;
@@ -166,7 +166,7 @@ VOID DApp::Exit(VOID)
 
 VOID DApp::Run(VOID)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	MSG msg;
 
 	DVarClr(msg);
@@ -219,7 +219,7 @@ BOOL DApp::Check(VOID) CONST
 	if (!m_Core.name || !*m_Core.name)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	if (!m_Core.hinst)
 		return FALSE;
 #else

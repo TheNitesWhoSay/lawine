@@ -13,7 +13,7 @@
 
 #include <common.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <pthread.h>
 #endif
 
@@ -46,7 +46,7 @@ public:
 
 protected:
 
-#ifdef WIN32
+#ifdef _WIN32
 	HANDLE		m_Thread;
 #else
 	pthread_t	m_Thread;

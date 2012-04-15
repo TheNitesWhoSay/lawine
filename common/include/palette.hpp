@@ -38,7 +38,7 @@ public:
 	operator PALPTR ();
 	operator PALCPTR () CONST;
 
-#ifdef WIN32
+#ifdef _WIN32
 	operator LPPALETTEENTRY () CONST;
 #endif
 

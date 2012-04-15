@@ -19,7 +19,7 @@
 static struct _DEBUG_TIMER s_DebugTimerList[MAX_DEBUG_TIMER];
 static INT s_CurDebugTimer = 0;
 
-#ifdef WIN32
+#ifdef _WIN32
 
 HANDLE _debug_timer_current_thread = NULL;
 FILETIME _debug_timer_dummy;
@@ -29,7 +29,7 @@ QWORD _debug_timer_tmp;
 
 /************************************************************************/
 
-#ifdef WIN32
+#ifdef _WIN32
 
 struct _DEBUG_TIMER * __fastcall _register_debug_timer(STRCPTR msg, STRCPTR file, INT line, STRCPTR func)
 {

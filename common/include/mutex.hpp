@@ -13,7 +13,7 @@
 
 #include <common.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <pthread.h>
 #endif
 
@@ -31,7 +31,7 @@ public:
 
 protected:
 
-#ifdef WIN32
+#ifdef _WIN32
 	CRITICAL_SECTION	m_Lock;
 #else
 	pthread_mutex_t		m_Lock;

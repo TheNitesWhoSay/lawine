@@ -3,7 +3,7 @@
 /* Creator     : ax.minaduki@gmail.com                                  */
 /* Create Time : Nov 27th, 2008                                         */
 /* Module      : Common library                                         */
-/* Descript    : Common definations for WIN32                           */
+/* Descript    : Common definations for Win32                           */
 /************************************************************************/
 
 #ifndef __SD_COMMON_WIN32_H__

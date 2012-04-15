@@ -18,7 +18,7 @@
 #ifndef NDEBUG
 
 struct _DEBUG_TIMER {
-#ifdef WIN32
+#ifdef _WIN32
 	QWORD begin;
 	QWORD time;
 #else
@@ -51,7 +51,7 @@ struct _DEBUG_TIMER {
 
 #else
 
-#ifdef WIN32
+#ifdef _WIN32
 
 CAPI extern HANDLE _debug_timer_current_thread;
 CAPI extern FILETIME _debug_timer_dummy;

@@ -108,7 +108,7 @@ DPalette::operator PALCPTR () CONST
 	return m_Palette;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 
 DPalette::operator LPPALETTEENTRY () CONST
 {

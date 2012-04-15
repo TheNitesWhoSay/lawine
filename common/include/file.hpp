@@ -28,7 +28,7 @@ public:
 		OM_TRUNCATE		= 0x00000008,
 	};
 
-#ifdef WIN32
+#ifdef _WIN32
 	typedef HANDLE	FILEHANDLE;
 #else
 	typedef FILE	*FILEHANDLE;

@@ -13,7 +13,7 @@
 
 #include <common.h>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <pthread.h>
 #endif
 
@@ -32,7 +32,7 @@ public:
 
 protected:
 
-#ifdef WIN32
+#ifdef _WIN32
 	mutable BOOL				m_RW;
 	mutable CRITICAL_SECTION	m_RdLock;
 	mutable CRITICAL_SECTION	m_WrLock;

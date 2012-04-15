@@ -10,7 +10,7 @@
 
 /************************************************************************/
 
-#ifdef WIN32
+#ifdef _WIN32
 CONST HANDLE INVALID_FILE = INVALID_HANDLE_VALUE;
 #else
 CONST FILE *INVALID_FILE = NULL;
@@ -50,7 +50,7 @@ BOOL DFile::Open(STRCPTR name, INT mode /* = OM_READ */)
 	if (!name)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD access = 0UL;
 	DWORD share = FILE_SHARE_READ;
 	if (mode & OM_READ)
@@ -118,7 +118,7 @@ BOOL DFile::Close(VOID)
 	if (m_File == INVALID_FILE)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	::CloseHandle(m_File);
 	if (m_Temp)
 		::DeleteFile(m_Name);
@@ -147,7 +147,7 @@ UINT DFile::Read(VPTR buf, UINT size)
 	if (m_File == INVALID_FILE || !buf || !size)
 		return 0U;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD rd_size = 0UL;
 	::ReadFile(m_File, buf, size, &rd_size, NULL);
 	return rd_size;
@@ -173,7 +173,7 @@ UINT DFile::Write(VCPTR buf, UINT size)
 	if (m_File == INVALID_FILE || !buf || !size)
 		return 0U;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD wr_size = 0UL;
 	::WriteFile(m_File, buf, size, &wr_size, NULL);
 	return wr_size;
@@ -196,7 +196,7 @@ UINT DFile::WriteFormat(STRCPTR fmt, ...)
 
 VOID DFile::Flush(VOID)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::FlushFileBuffers(m_File);
 #else
 	::fflush(m_File);
@@ -205,7 +205,7 @@ VOID DFile::Flush(VOID)
 
 UINT DFile::Position(VOID) CONST
 {
-#ifdef WIN32
+#ifdef _WIN32
 	return ::SetFilePointer(m_File, 0L, NULL, FILE_CURRENT);
 #else
 	return ::ftell(m_File);
@@ -217,7 +217,7 @@ UINT DFile::Seek(INT offset, SEEK_MODE mode /* = SM_BEGIN */)
 	if (m_File == INVALID_FILE)
 		return ERROR_POS;
 
-#ifdef WIN32
+#ifdef _WIN32
 	return ::SetFilePointer(m_File, offset, NULL, mode);
 #else
 	if (!::fseek(m_File, offset, mode))
@@ -232,7 +232,7 @@ VOID DFile::Rewind(VOID)
 	if (m_File == INVALID_FILE)
 		return;
 
-#ifdef WIN32
+#ifdef _WIN32
 	::SetFilePointer(m_File, 0L, NULL, FILE_BEGIN);
 #else
 	::rewind(m_File);
@@ -244,7 +244,7 @@ UINT DFile::GetSize(VOID) CONST
 	if (m_File == INVALID_FILE)
 		return ERROR_SIZE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD ret = ::GetFileSize(m_File, NULL);
 	if (ret == INVALID_FILE_SIZE)
 		return ERROR_SIZE;
@@ -272,7 +272,7 @@ BOOL DFile::SetSize(UINT size)
 	if (size == ERROR_SIZE)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	if (::SetFilePointer(m_File, size, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 		return FALSE;
 	return ::SetEndOfFile(m_File);
@@ -286,7 +286,7 @@ BOOL DFile::IsEnd(VOID) CONST
 	if (m_File == INVALID_FILE)
 		return TRUE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD size = ::GetFileSize(m_File, NULL);
 	if (size == INVALID_FILE_SIZE)
 		return TRUE;
@@ -347,7 +347,7 @@ UINT DFile::GetFullPath(STRCPTR name, STRPTR buf /* = NULL */, UINT buf_size /* 
 	if (!name || !*name)
 		return 0;
 
-#ifdef WIN32
+#ifdef _WIN32
 	return ::GetFullPathName(name, buf_size, buf, NULL);
 #else
 	// TODO:
@@ -359,7 +359,7 @@ BOOL DFile::IsExist(STRCPTR name)
 	if (!name || !*name)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	if (::GetFileAttributes(name) == 0xffffffffUL)
 		return FALSE;
 #else
@@ -375,7 +375,7 @@ BOOL DFile::IsFile(STRCPTR name)
 	if (!name || !*name)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD attr = ::GetFileAttributes(name);
 	if (attr == 0xffffffffUL)
 		return FALSE;
@@ -394,7 +394,7 @@ BOOL DFile::IsDir(STRCPTR name)
 	if (!name || !*name)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD attr = ::GetFileAttributes(name);
 	if (attr == 0xffffffffUL)
 		return FALSE;
@@ -413,7 +413,7 @@ BOOL DFile::Remove(STRCPTR name)
 	if (!name || !*name)
 		return FALSE;
 
-#ifdef WIN32
+#ifdef _WIN32
 	if (!::DeleteFile(name))
 		return FALSE;
 #else

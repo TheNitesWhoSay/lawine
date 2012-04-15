@@ -16,7 +16,7 @@ static CHAR s_Cwd[MAX_PATH + 1];
 
 CAPI STRCPTR DGetCwd(VOID)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	if (!GetCurrentDirectory(MAX_PATH, s_Cwd))
 #else
 	if (!getcwd(s_Cwd, MAX_PATH))

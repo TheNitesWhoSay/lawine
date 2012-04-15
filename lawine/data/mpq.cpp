@@ -45,6 +45,8 @@ CONST UINT PHYSICAL_SECTOR_SIZE = 1 << PHYSICAL_SECTOR_SHIFT;
 CONST STRCPTR HASH_TABLE_KEY = "(hash table)";
 CONST STRCPTR BLOCK_TABLE_KEY = "(block table)";
 
+CONST BYTE VALID_COMP[] = { COMP_IMPLODE, COMP_HUFFMAN, COMP_ADPCM_STEREO, COMP_ADPCM_MONO };	// In fix order!
+
 /************************************************************************/
 
 LCID DMpq::s_Locale;
@@ -1350,7 +1352,8 @@ DMpq::DFileBuffer::DFileBuffer() :
 	m_SectorNum(0U),
 	m_Key(0UL),
 	m_OffTable(NULL),
-	m_CurCache(0)
+	m_CurCache(0),
+	m_SwapBuffer(NULL)
 {
 	DVarClr(m_Block);
 	DVarClr(m_Cache);
@@ -1460,6 +1463,9 @@ VOID DMpq::DFileBuffer::Clear(VOID)
 	for (INT i = 0; i < MAX_CACHE_SECTOR; i++)
 		delete [] m_Cache[i].data;
 	DVarClr(m_Cache);
+
+	delete [] m_SwapBuffer;
+	m_SwapBuffer = NULL;
 
 	delete [] m_OffTable;
 	m_OffTable = NULL;
@@ -1613,6 +1619,8 @@ BOOL DMpq::DFileBuffer::ReadSector(UINT sector, BUFPTR buf, UINT size)
 			return FALSE;
 
 		UINT data_size = m_OffTable[sector + 1] - offset;
+		if (!data_size)
+			return FALSE;
 
 		if (data_size >= size) {
 			if (!m_Access->Read(buf, size))
@@ -1625,7 +1633,7 @@ BOOL DMpq::DFileBuffer::ReadSector(UINT sector, BUFPTR buf, UINT size)
 				return FALSE;
 			if (m_Block.flags & BLOCK_ENCRYPT)
 				DecryptData(data, data_size, m_Key + sector);
-			if (!Decompress(sector, data, data_size, buf, size))
+			if (!Decompress(data, data_size, buf, size))
 				return FALSE;
 		}
 
@@ -1664,7 +1672,7 @@ BOOL DMpq::DFileBuffer::WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &d
 
 		data_size = 1 << SectorShift();
 
-		if (Compress(sector, buf, size, sector_buf, data_size) && data_size < size) {
+		if (Compress(buf, size, sector_buf, data_size) && data_size < size) {
 			DAssert(data_size);
 			if (m_Block.flags & BLOCK_ENCRYPT)
 				EncryptData(sector_buf, data_size, m_Key + sector);
@@ -1708,9 +1716,9 @@ BOOL DMpq::DFileBuffer::WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &d
 	return TRUE;
 }
 
-BOOL DMpq::DFileBuffer::Compress(UINT sector, BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size)
+BOOL DMpq::DFileBuffer::Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size)
 {
-	DAssert(sector < m_SectorNum && src && src_size && dest && dest_size);
+	DAssert(src && src_size && dest && dest_size);
 	DAssert(m_Block.flags & BLOCK_COMP_MASK);
 	DAssert(dest_size <= (1U << SectorShift()));
 
@@ -1748,45 +1756,80 @@ BOOL DMpq::DFileBuffer::Compress(UINT sector, BUFCPTR src, UINT src_size, BUFPTR
 	return FALSE;
 }
 
-BOOL DMpq::DFileBuffer::Decompress(UINT sector, BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size)
+BOOL DMpq::DFileBuffer::Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size)
 {
-	DAssert(sector < m_SectorNum && src && src_size && dest && dest_size);
+	DAssert(src && src_size && dest && dest_size);
 	DAssert(m_Block.flags & BLOCK_COMP_MASK);
 	DAssert(src_size < dest_size && dest_size <= (1U << SectorShift()));
+
+	UINT sector_size = 1 << SectorShift();
 
 	if (m_Block.flags & BLOCK_IMPLODE)
 		return explode(src, src_size, dest, &dest_size);
 
 	if (m_Block.flags & BLOCK_COMPRESS) {
 
-		BYTE comp1 = *src & 0x0f;
-		BYTE comp2 = *src & 0xf0;
+		BYTE code = *src;
 
 		src++;
 		src_size--;
 
-		if (comp1) {
-			if (comp1 & COMP_IMPLODE) {
-				if (!explode(src, src_size, dest, &dest_size))
-					return FALSE;
-			} else if (comp1 & COMP_HUFFMAN) {
-				if (!huff_decode(src, src_size, dest, &dest_size))
-					return FALSE;
-			} else {
-				DAssert(FALSE);
-				return FALSE;
-			}
+		if (!code) {
+			DMemCpy(dest, src, src_size);
+			dest_size = src_size;
+			return TRUE;
 		}
 
-		if (comp2) {
-			if (comp2 & COMP_ADPCM_STEREO) {
-				DAssert(FALSE);
-			} else if (comp2 & COMP_ADPCM_MONO) {
-				DAssert(FALSE);
-			} else {
+		INT cnt = 0;
+		BYTE test = code;
+
+		for (INT i = 0; i < DCount(VALID_COMP); i++) {
+			BYTE comp = code & VALID_COMP[i];
+			if (!comp)
+				continue;
+			cnt++;
+			test &= ~comp;
+		}
+
+		// unrecognizable compression found
+		if (test)
+			return FALSE;
+
+		if (cnt > 1 && !m_SwapBuffer)
+			m_SwapBuffer = new BYTE[sector_size];
+
+		UINT size = dest_size;
+
+		for (INT i = 0; i < DCount(VALID_COMP); i++) {
+
+			BYTE comp = code & VALID_COMP[i];
+			if (!comp)
+				continue;
+
+			BUFPTR work = (cnt-- & 1) ? dest : m_SwapBuffer;
+			dest_size = size;
+
+			switch (comp) {
+			case COMP_IMPLODE:
+				if (!explode(src, src_size, work, &dest_size))
+					return FALSE;
+				break;
+			case COMP_HUFFMAN:
+				if (!huff_decode(src, src_size, work, &dest_size))
+					return FALSE;
+				break;
+			case COMP_ADPCM_STEREO:
 				DAssert(FALSE);
 				return FALSE;
+				break;
+			case COMP_ADPCM_MONO:
+				DAssert(FALSE);
+				return FALSE;
+				break;
 			}
+
+			src = work;
+			src_size = dest_size;
 		}
 
 		return TRUE;

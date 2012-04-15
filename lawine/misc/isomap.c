@@ -1159,10 +1159,10 @@ static BOOL validate_iso_map(CONST ISOM_MAP *map, BOOL create)
 	if (!map || !DBetween(map->era, 0, L_ERA_NUM))
 		return FALSE;
 
-	if (map->size.cx < 0 || map->size.cx > MAX_ISOM_MAP_ROW)
+	if (map->size.cx < 0)
 		return FALSE;
 
-	if (map->size.cy < 0 || map->size.cy > MAX_ISOM_MAP_LINE)
+	if (map->size.cy < 0)
 		return FALSE;
 
 	row = CALC_ISOM_ROW(map->size.cx);

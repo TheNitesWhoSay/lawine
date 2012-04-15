@@ -59,14 +59,13 @@ CONST UINT DIM_SMALL = 96U;
 CONST UINT DIM_MEDIUM = 128U;
 CONST UINT DIM_LARGE = 192U;
 CONST UINT DIM_HUGE = 256U;
+CONST UINT DIM_MAX = 65535U;
 
 CONST UINT MAX_PLAYER = 12U;
 
 CONST UINT MINIMAP_DIM = 128U;
 
 CONST STRCPTR CHK_FILE_PATH = "staredit\\scenario.chk";
-
-CONST UINT VALID_DIM[] = { DIM_TINY, DIM_SMALL, DIM_MEDIUM, DIM_LARGE, DIM_HUGE };
 
 /************************************************************************/
 
@@ -139,7 +138,10 @@ BOOL DScm::Create(CONST DTileset &ts, INT def, CONST SIZE &size)
 
 	DAssert(!m_IsoMap.isom && !m_Minimap.IsValid() && !m_Tile);
 
-	if (!DBetween(ts.GetEra(), 0, L_ERA_NUM) || !CheckMapSize(size))
+	if (!DBetween(ts.GetEra(), 0, L_ERA_NUM))
+		return FALSE;
+
+	if (size.cx <= 0 || size.cx > DIM_MAX || size.cy <= 0 || size.cy > DIM_MAX)
 		return FALSE;
 
 	m_IsoMap.era = ts.GetEra();
@@ -353,6 +355,9 @@ BOOL DScm::Verify(VOID)
 	if (!m_Chk.GetSectionData(FOURCC_VCOD, DChk::ST_LASTONE, &vcode, sizeof(vcode)))
 		return FALSE;
 
+	// 下面使用和SC相同的VCOD校验方法
+	// 要注意Staredit和SC的校验方式是不同的，也正因为如此有些人利用这一点对地图文件加密
+
 	BYTE owner[MAX_PLAYER];
 	size = m_Chk.GetSectionSize(FOURCC_OWNR, DChk::ST_LASTONE);
 	if (size != sizeof(owner))
@@ -415,8 +420,6 @@ BOOL DScm::ReadEra(VOID)
 BOOL DScm::ReadMapSize(VOID)
 {
 	DIM_DATA dim;
-	SIZE map_size;
-
 	UINT size = m_Chk.GetSectionSize(FOURCC_DIM, DChk::ST_LASTONE);
 	if (size != sizeof(dim))
 		return FALSE;
@@ -424,12 +427,11 @@ BOOL DScm::ReadMapSize(VOID)
 	if (!m_Chk.GetSectionData(FOURCC_DIM, DChk::ST_LASTONE, &dim, sizeof(dim)))
 		return FALSE;
 
-	map_size.cx = dim.width;
-	map_size.cy = dim.height;
-	if (!CheckMapSize(map_size))
+	if (!dim.width || !dim.height)
 		return FALSE;
 
-	m_IsoMap.size = map_size;
+	m_IsoMap.size.cx = dim.width;
+	m_IsoMap.size.cy = dim.height;
 	return TRUE;
 }
 
@@ -542,7 +544,7 @@ VOID DScm::MakeSmallMinimap(CONST DTileset &ts, CONST SIZE &size)
 {
 	DAssert(m_Tile);
 
-	DVerify(m_Minimap.SetSize(size));
+	m_Minimap.SetSize(size);
 
 	DTileset::MINI_THUMB thumb;
 	LTILECPTR tile = m_Tile;
@@ -567,15 +569,17 @@ VOID DScm::MakeMediumMinimap(CONST DTileset &ts, CONST SIZE &size)
 {
 	DAssert(m_Tile);
 
-	DVerify(m_Minimap.SetSize(size));
+	m_Minimap.SetSize(size);
+	INT w = m_Minimap.GetWidth();
+	INT h = m_Minimap.GetHeight();
 
 	DTileset::MINI_THUMB thumb;
 	LTILECPTR tile = m_Tile;
 	BUFPTR data = m_Minimap.GetData();
 	DAssert(m_Minimap.GetPitch() == MINIMAP_DIM);
 
-	for (INT i = 0; i < size.cy; i++) {
-		for (INT j = 0; j < size.cx; j++, tile++) {
+	for (INT i = 0; i < h; i++) {
+		for (INT j = 0; j < w; j++, tile++) {
 			DVerify(ts.GetThumb(*tile, thumb));
 			data[j] = thumb.thumb[0][0];
 		}
@@ -587,47 +591,23 @@ VOID DScm::MakeLargeMinimap(CONST DTileset &ts, CONST SIZE &size)
 {
 	DAssert(m_Tile);
 
-	DVerify(m_Minimap.SetSize(size));
+	m_Minimap.SetSize(size);
+	INT w = m_Minimap.GetWidth();
+	INT h = m_Minimap.GetHeight();
 
 	DTileset::MINI_THUMB thumb;
 	LTILECPTR tile = m_Tile;
 	BUFPTR data = m_Minimap.GetData();
 	DAssert(m_Minimap.GetPitch() == MINIMAP_DIM);
 
-	for (INT i = 0; i < size.cy; i++) {
-		for (INT j = 0; j < size.cx; j++, tile += 2) {
+	for (INT i = 0; i < h; i++) {
+		for (INT j = 0; j < w; j++, tile += 2) {
 			DVerify(ts.GetThumb(*tile, thumb));
 			data[j] = thumb.thumb[0][0];
 		}
 		data += MINIMAP_DIM;
-		tile += size.cx * 2;
+		tile += w * 2;
 	}
-}
-
-BOOL DScm::CheckMapSize(CONST SIZE &size)
-{
-	// TODO: SC似乎支持不规则大小地图，先用该方法判断
-	if (size.cx < DIM_TINY || size.cx > DIM_HUGE)
-		return FALSE;
-	if (size.cy < DIM_TINY || size.cx > DIM_HUGE)
-		return FALSE;
-
-	return TRUE;
-#if 0
-	BOOL w_ok = FALSE;
-	BOOL h_ok = FALSE;
-
-	for (INT i = 0; i < DCount(VALID_DIM); i++) {
-		if (size.cx == VALID_DIM[i])
-			w_ok = TRUE;
-		if (size.cy == VALID_DIM[i])
-			h_ok = TRUE;
-		if (w_ok && h_ok)
-			return TRUE;
-	}
-
-	return FALSE;
-#endif
 }
 
 DWORD DScm::CalcVerifyHash(CONST VCODE *vcode, VCPTR vdata, UINT vdata_size)

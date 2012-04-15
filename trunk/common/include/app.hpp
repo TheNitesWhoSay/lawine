@@ -65,7 +65,7 @@ protected:
 	APPLICATION		m_Core;
 	POINT			m_Pos;
 	SIZE			m_Size;
-#ifdef WIN32
+#ifdef _WIN32
 	HWND			m_Wnd;
 	LARGE_INTEGER	m_Freq;
 	LARGE_INTEGER	m_StartTime;

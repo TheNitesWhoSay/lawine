@@ -11,11 +11,11 @@
 /************************************************************************/
 
 DRwLock::DRwLock()
-#ifdef WIN32
+#ifdef _WIN32
 :	m_RW(FALSE)
 #endif
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::InitializeCriticalSection(&m_RdLock);
 	::InitializeCriticalSection(&m_WrLock);
 #else
@@ -25,7 +25,7 @@ DRwLock::DRwLock()
 
 DRwLock::~DRwLock()
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::DeleteCriticalSection(&m_WrLock);
 	::DeleteCriticalSection(&m_RdLock);
 #else
@@ -35,7 +35,7 @@ DRwLock::~DRwLock()
 
 BOOL DRwLock::Read(BOOL wait /* = TRUE */, UINT timeout /* = 0U */) CONST
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::EnterCriticalSection(&m_WrLock);
 	m_RW = FALSE;
 	return TRUE;
@@ -56,7 +56,7 @@ BOOL DRwLock::Read(BOOL wait /* = TRUE */, UINT timeout /* = 0U */) CONST
 
 BOOL DRwLock::Write(BOOL wait /* = TRUE */, UINT timeout /* = 0U */)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::EnterCriticalSection(&m_RdLock);
 	::EnterCriticalSection(&m_WrLock);
 	m_RW = TRUE;
@@ -78,7 +78,7 @@ BOOL DRwLock::Write(BOOL wait /* = TRUE */, UINT timeout /* = 0U */)
 
 BOOL DRwLock::Unlock(VOID) CONST
 {
-#ifdef WIN32
+#ifdef _WIN32
 	BOOL rw = m_RW;
 	m_RW = FALSE;
 	::LeaveCriticalSection(&m_WrLock);

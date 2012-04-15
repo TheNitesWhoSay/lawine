@@ -12,7 +12,7 @@
 
 DMutex::DMutex()
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::InitializeCriticalSection(&m_Lock);
 #else
 	::pthread_mutex_init(&m_Lock, NULL);
@@ -21,7 +21,7 @@ DMutex::DMutex()
 
 DMutex::~DMutex()
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::DeleteCriticalSection(&m_Lock);
 #else
 	::pthread_mutex_destroy(&m_Lock);
@@ -30,7 +30,7 @@ DMutex::~DMutex()
 
 BOOL DMutex::Lock(BOOL wait /* = TRUE */, DWORD timeout /* = 0UL */)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::EnterCriticalSection(&m_Lock);
 	return TRUE;
 #else
@@ -50,7 +50,7 @@ BOOL DMutex::Lock(BOOL wait /* = TRUE */, DWORD timeout /* = 0UL */)
 
 BOOL DMutex::Unlock(VOID)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::LeaveCriticalSection(&m_Lock);
 	return TRUE;
 #else

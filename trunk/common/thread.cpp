@@ -35,7 +35,7 @@ DThread::DThread() :
 
 INT DThread::GetPriority(VOID) CONST
 {
-#ifdef WIN32
+#ifdef _WIN32
 	return ::GetThreadPriority(m_Thread);
 #else
 	return 0;
@@ -44,7 +44,7 @@ INT DThread::GetPriority(VOID) CONST
 
 VOID DThread::SetPriority(INT priority)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::SetThreadPriority(m_Thread, priority);
 #endif
 }
@@ -53,7 +53,7 @@ BOOL DThread::Run(VPTR param)
 {
 	PARAMETER tmp_parm = { this, param };
 
-#ifdef WIN32
+#ifdef _WIN32
 	m_Thread = ::CreateThread(NULL, 0, reinterpret_cast<PTHREAD_START_ROUTINE>(&::ThreadRoutine), &tmp_parm, 0, NULL);
 	if (!m_Thread)
 		return FALSE;
@@ -74,7 +74,7 @@ BOOL DThread::Terminate(VOID)
 
 VOID DThread::Wait(VOID)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	::WaitForSingleObject(m_Thread, INFINITE);
 #else
 	::pthread_join(m_Thread, NULL);
@@ -85,7 +85,7 @@ INT DThread::GetReturn(VOID)
 {
 	INT ret = RV_UNKNOWN;
 
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD tmp;
 	::WaitForSingleObject(m_Thread, INFINITE);
 	if (::GetExitCodeThread(m_Thread, &tmp))
@@ -100,7 +100,7 @@ INT DThread::GetReturn(VOID)
 #if 0
 BOOL DThread::GetReturn(INT *ret /* = NULL */)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	DWORD tmp;
 	if (!::GetExitCodeThread(m_Thread, &tmp))
 		return FALSE;

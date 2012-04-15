@@ -11,14 +11,21 @@
 
 /************************************************************************/
 
-#include <dsound.h>
 #include <common.h>
 #include <image.h>
 #include <lawinedef.h>
 
 /************************************************************************/
 
-#ifdef WIN32
+#ifdef _WIN32
+#include <dsound.h>
+#else
+typedef VPTR	LPDIRECTSOUND;
+#endif
+
+/************************************************************************/
+
+#ifdef _WIN32
 #ifdef LAWINE_EXPORTS
 #define LAWINE_API	__declspec(dllexport) WINAPI
 #else

@@ -105,9 +105,9 @@ protected:
 	BOOL Load(STRCPTR mpq_name);
 	VOID Clear(VOID);
 	BOOL AddFile(STRCPTR file_name, BOOL compress, BOOL encrypt, DFile &file);
-	BOOL AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, DFile &file);
-	BOOL NewFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BUFCPTR file_data);
-	HASHENTRY *PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compress, BOOL encrypt, UINT &block_idx, BLOCKENTRY &block, DWORD &key);
+	BOOL AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BYTE comp, DFile &file);
+	BOOL NewFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BYTE comp, BUFCPTR file_data);
+	HASHENTRY *PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compress, BOOL encrypt, UINT &block_idx, BLOCKENTRY &block, DWORD &key, BYTE &compression);
 	BOOL Writeback(DSubFile *sub, HASHENTRY *hash, UINT block_idx);
 	BOOL Writeback(UINT hash_table_offset);
 	HASHENTRY *Lookup(STRCPTR file_name);
@@ -187,7 +187,7 @@ public:
 	DAccess *GetAccess(VOID) CONST;
 	UINT GetSize(VOID) CONST;
 	CONST BLOCKENTRY *GetBlock(VOID) CONST;
-	BOOL Create(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &block, DWORD key);
+	BOOL Create(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BYTE comp);
 	BOOL Open(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &block, DWORD key);
 	BOOL Close(VOID);
 	UINT Read(VPTR buf, UINT size);
@@ -214,7 +214,7 @@ public:
 	DAccess *GetAccess(VOID) CONST;
 	CONST BLOCKENTRY &GetBlock(VOID) CONST;
 	UINT SectorShift(VOID) CONST;
-	BOOL Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD key);
+	BOOL Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD key, BYTE comp);
 	BOOL Open(DAccess *archive, CONST BLOCKENTRY &block, DWORD key);
 	VOID Clear(VOID);
 	BUFCPTR GetSector(UINT sector, UINT &size);
@@ -233,12 +233,14 @@ protected:
 	BOOL Create(VOID);
 	BOOL ReadSector(UINT sector, BUFPTR buf, UINT size);
 	BOOL WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &data_size);
+	INT CheckCompression(BYTE comp);
 	BOOL Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size);
 	BOOL Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size);
 
 	DAccess		*m_Access;
 	UINT		m_SectorNum;
 	DWORD		m_Key;
+	BYTE		m_Compression;
 	BLOCKENTRY	m_Block;
 	DWORD		*m_OffTable;
 	BUFPTR		m_SwapBuffer;

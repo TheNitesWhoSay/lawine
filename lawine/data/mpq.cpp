@@ -32,6 +32,7 @@ CONST DWORD BLOCK_ENCRYPT = 0x00010000UL;		// Indicates whether file is encrypte
 CONST DWORD BLOCK_FIX_KEY = 0x00020000UL;		// File decryption key has to be fixed
 CONST DWORD BLOCK_EXIST = 0x80000000UL;			// Set if file exists, reset when the file was deleted
 
+CONST BYTE COMP_NONE = 0x00;					// Not compressed
 CONST BYTE COMP_HUFFMAN = 0x01;					// Huffman compression (used on WAVE files only)
 CONST BYTE COMP_IMPLODE = 0x08;					// PKWARE DCL compression
 CONST BYTE COMP_ADPCM_MONO = 0x40;				// IMA ADPCM compression (mono)
@@ -255,13 +256,14 @@ BOOL DMpq::NewFile(STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compres
 
 	UINT block_idx;
 	DWORD key;
+	BYTE comp;
 	BLOCKENTRY block;
-	HASHENTRY *hash = PrepareAdd(file_name, size, compress, encrypt, block_idx, block, key);
+	HASHENTRY *hash = PrepareAdd(file_name, size, compress, encrypt, block_idx, block, key, comp);
 	if (!hash)
 		return FALSE;
 
 	DSubFile *sub = new DSubFile;
-	if (!NewFile(sub, hash, block_idx, block, key, file_data)) {
+	if (!NewFile(sub, hash, block_idx, block, key, comp, file_data)) {
 		delete sub;
 		return FALSE;
 	}
@@ -526,13 +528,14 @@ BOOL DMpq::AddFile(STRCPTR file_name, BOOL compress, BOOL encrypt, DFile &file)
 
 	UINT block_idx;
 	DWORD key;
+	BYTE comp;
 	BLOCKENTRY block;
-	HASHENTRY *hash = PrepareAdd(file_name, size, compress, encrypt, block_idx, block, key);
+	HASHENTRY *hash = PrepareAdd(file_name, size, compress, encrypt, block_idx, block, key, comp);
 	if (!hash)
 		return FALSE;
 
 	DSubFile *sub = new DSubFile;
-	if (!AddFile(sub, hash, block_idx, block, key, file)) {
+	if (!AddFile(sub, hash, block_idx, block, key, comp, file)) {
 		delete sub;
 		return FALSE;
 	}
@@ -541,11 +544,11 @@ BOOL DMpq::AddFile(STRCPTR file_name, BOOL compress, BOOL encrypt, DFile &file)
 	return TRUE;
 }
 
-BOOL DMpq::AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, DFile &file)
+BOOL DMpq::AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BYTE comp, DFile &file)
 {
 	DAssert(sub && hash && m_Access && m_HashNum);
 
-	if (!sub->Create(m_Access, block_idx, block, key))
+	if (!sub->Create(m_Access, block_idx, block, key, comp))
 		return FALSE;
 
 	BOOL flag = TRUE;
@@ -571,11 +574,11 @@ BOOL DMpq::AddFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKEN
 	return TRUE;
 }
 
-BOOL DMpq::NewFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BUFCPTR file_data)
+BOOL DMpq::NewFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BYTE comp, BUFCPTR file_data)
 {
 	DAssert(sub && m_Access && m_HashNum);
 
-	if (!sub->Create(m_Access, block_idx, block, key))
+	if (!sub->Create(m_Access, block_idx, block, key, comp))
 		return FALSE;
 
 	if (sub->Write(file_data, block.file_size) != block.file_size)
@@ -587,7 +590,7 @@ BOOL DMpq::NewFile(DSubFile *sub, HASHENTRY *hash, UINT block_idx, CONST BLOCKEN
 	return TRUE;
 }
 
-DMpq::HASHENTRY *DMpq::PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compress, BOOL encrypt, UINT &block_idx, BLOCKENTRY &block, DWORD &key)
+DMpq::HASHENTRY *DMpq::PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compress, BOOL encrypt, UINT &block_idx, BLOCKENTRY &block, DWORD &key, BYTE &compression)
 {
 	DAssert(file_name && *file_name);
 
@@ -605,6 +608,16 @@ DMpq::HASHENTRY *DMpq::PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compre
 	HASHENTRY *hash = AllocHash(file_name);
 	if (!hash)
 		return NULL;
+
+	if (block.flags & BLOCK_COMPRESS) {
+		INT len = DStrLen(file_name);
+		if (len > 4 && !DStrCmpI(file_name + len - 4, ".wav"))
+			compression = COMP_ADPCM_STEREO | COMP_HUFFMAN;
+		else
+			compression = COMP_IMPLODE;
+	} else {
+		compression = COMP_NONE;
+	}
 
 	key = CalcFileKey(file_name, block);
 
@@ -1157,7 +1170,7 @@ CONST DMpq::BLOCKENTRY *DMpq::DSubFile::GetBlock(VOID) CONST
 	return &m_FileBuffer->GetBlock();
 }
 
-BOOL DMpq::DSubFile::Create(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &block, DWORD key)
+BOOL DMpq::DSubFile::Create(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &block, DWORD key, BYTE comp)
 {
 	DAssert(archive && (block.flags & BLOCK_EXIST));
 	DAssert(block_idx != HASH_ENTRY_INVALID && block_idx != HASH_ENTRY_EMPTY);
@@ -1168,7 +1181,7 @@ BOOL DMpq::DSubFile::Create(DAccess *archive, UINT block_idx, CONST BLOCKENTRY &
 		return FALSE;
 
 	DFileBuffer *buf = new DFileBuffer;
-	if (!buf->Create(archive, block, key)) {
+	if (!buf->Create(archive, block, key, comp)) {
 		DAssert(FALSE);
 		delete buf;
 		return FALSE;
@@ -1351,6 +1364,7 @@ DMpq::DFileBuffer::DFileBuffer() :
 	m_Access(NULL),
 	m_SectorNum(0U),
 	m_Key(0UL),
+	m_Compression(COMP_NONE),
 	m_OffTable(NULL),
 	m_CurCache(0),
 	m_SwapBuffer(NULL)
@@ -1382,7 +1396,7 @@ UINT DMpq::DFileBuffer::SectorShift(VOID) CONST
 	return m_Access->SectorShift();
 }
 
-BOOL DMpq::DFileBuffer::Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD key)
+BOOL DMpq::DFileBuffer::Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD key, BYTE comp)
 {
 	DAssert(archive && (block.flags & BLOCK_EXIST));
 	DAssert(archive->Writable());
@@ -1409,6 +1423,7 @@ BOOL DMpq::DFileBuffer::Create(DAccess *archive, CONST BLOCKENTRY &block, DWORD 
 		m_Key = 0UL;
 	}
 
+	m_Compression = comp;
 	m_Access = archive;
 	m_SectorNum = sector_num;
 
@@ -1473,6 +1488,7 @@ VOID DMpq::DFileBuffer::Clear(VOID)
 	m_Access = NULL;
 	m_SectorNum = 0U;
 	m_Key = 0UL;
+	m_Compression = COMP_NONE;
 	m_CurCache = 0;
 	DVarClr(m_Block);
 }
@@ -1716,6 +1732,32 @@ BOOL DMpq::DFileBuffer::WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &d
 	return TRUE;
 }
 
+INT DMpq::DFileBuffer::CheckCompression(BYTE comp)
+{
+	if (!comp)
+		return 0;
+
+	INT cnt = 0;
+	BYTE test = comp;
+
+	for (INT i = 0; i < DCount(VALID_COMP); i++) {
+		BYTE code = comp & VALID_COMP[i];
+		if (!code)
+			continue;
+		cnt++;
+		test &= ~code;
+	}
+
+	// unrecognizable compression found
+	if (test)
+		return -1;
+
+	if (cnt > 1 && !m_SwapBuffer)
+		m_SwapBuffer = new BYTE[1 << SectorShift()];
+
+	return cnt;
+}
+
 BOOL DMpq::DFileBuffer::Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size)
 {
 	DAssert(src && src_size && dest && dest_size);
@@ -1740,20 +1782,34 @@ BOOL DMpq::DFileBuffer::Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &
 	if (m_Block.flags & BLOCK_IMPLODE)
 		return implode(IMPLODE_BINARY, dict, src, src_size, dest, &dest_size);
 
-	if (m_Block.flags & BLOCK_COMPRESS) {
+	if (!(m_Block.flags & BLOCK_COMPRESS))
+		return FALSE;
 
-		*dest++ = COMP_IMPLODE;
-		dest_size--;
+	INT cnt = CheckCompression(m_Compression);
+	if (cnt < 0)
+		return FALSE;
 
-		if (!implode(IMPLODE_BINARY, dict, src, src_size, dest, &dest_size))
+	*dest++ = m_Compression;
+	dest_size--;
+
+	if (!cnt) {
+		if (dest_size < src_size)
 			return FALSE;
-
-		dest_size++;
+		DMemCpy(dest, src, src_size);
+		dest_size = src_size + 1;
 		return TRUE;
 	}
 
-	DAssert(FALSE);
-	return FALSE;
+	// TODO:
+	if (m_Compression == COMP_IMPLODE) {
+		if (!implode(IMPLODE_BINARY, dict, src, src_size, dest, &dest_size))
+			return FALSE;
+	} else {
+		DAssert(FALSE);
+	}
+
+	dest_size++;
+	return TRUE;
 }
 
 BOOL DMpq::DFileBuffer::Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size)
@@ -1762,81 +1818,61 @@ BOOL DMpq::DFileBuffer::Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT
 	DAssert(m_Block.flags & BLOCK_COMP_MASK);
 	DAssert(src_size < dest_size && dest_size <= (1U << SectorShift()));
 
-	UINT sector_size = 1 << SectorShift();
-
 	if (m_Block.flags & BLOCK_IMPLODE)
 		return explode(src, src_size, dest, &dest_size);
 
-	if (m_Block.flags & BLOCK_COMPRESS) {
+	if (!(m_Block.flags & BLOCK_COMPRESS))
+		return FALSE;
 
-		BYTE code = *src;
+	BYTE comp = *src;
+	INT cnt = CheckCompression(comp);
+	if (cnt < 0)
+		return FALSE;
 
-		src++;
-		src_size--;
+	src++;
+	src_size--;
 
-		if (!code) {
-			DMemCpy(dest, src, src_size);
-			dest_size = src_size;
-			return TRUE;
-		}
-
-		INT cnt = 0;
-		BYTE test = code;
-
-		for (INT i = 0; i < DCount(VALID_COMP); i++) {
-			BYTE comp = code & VALID_COMP[i];
-			if (!comp)
-				continue;
-			cnt++;
-			test &= ~comp;
-		}
-
-		// unrecognizable compression found
-		if (test)
-			return FALSE;
-
-		if (cnt > 1 && !m_SwapBuffer)
-			m_SwapBuffer = new BYTE[sector_size];
-
-		UINT size = dest_size;
-
-		for (INT i = 0; i < DCount(VALID_COMP); i++) {
-
-			BYTE comp = code & VALID_COMP[i];
-			if (!comp)
-				continue;
-
-			BUFPTR work = (cnt-- & 1) ? dest : m_SwapBuffer;
-			dest_size = size;
-
-			switch (comp) {
-			case COMP_IMPLODE:
-				if (!explode(src, src_size, work, &dest_size))
-					return FALSE;
-				break;
-			case COMP_HUFFMAN:
-				if (!huff_decode(src, src_size, work, &dest_size))
-					return FALSE;
-				break;
-			case COMP_ADPCM_STEREO:
-				DAssert(FALSE);
-				return FALSE;
-				break;
-			case COMP_ADPCM_MONO:
-				DAssert(FALSE);
-				return FALSE;
-				break;
-			}
-
-			src = work;
-			src_size = dest_size;
-		}
-
+	if (!cnt) {
+		DMemCpy(dest, src, src_size);
+		dest_size = src_size;
 		return TRUE;
 	}
 
-	DAssert(FALSE);
-	return FALSE;
+	UINT size = dest_size;
+
+	for (INT i = 0; i < DCount(VALID_COMP); i++) {
+
+		BYTE code = comp & VALID_COMP[i];
+		if (!code)
+			continue;
+
+		BUFPTR work = (cnt-- & 1) ? dest : m_SwapBuffer;
+		dest_size = size;
+
+		switch (code) {
+		case COMP_IMPLODE:
+			if (!explode(src, src_size, work, &dest_size))
+				return FALSE;
+			break;
+		case COMP_HUFFMAN:
+			if (!huff_decode(src, src_size, work, &dest_size))
+				return FALSE;
+			break;
+		case COMP_ADPCM_STEREO:
+			DAssert(FALSE);
+			return FALSE;
+			break;
+		case COMP_ADPCM_MONO:
+			DAssert(FALSE);
+			return FALSE;
+			break;
+		}
+
+		src = work;
+		src_size = dest_size;
+	}
+
+	return TRUE;
 }
 
 /************************************************************************/

@@ -23,7 +23,7 @@
 
 #define CODEC_TYPE_NUM		9						/* 编码类型总数 */
 
-#define NTC					256						/* 新传输码(new transmit code) */
+#define EOT					256						/* 传输结束码(end of transmition) */
 #define NYT					257						/* 未传输码(not yet transmitted) */
 
 #define CODE_MAP_LEN		258						/* 编码映射表大小 */
@@ -248,35 +248,125 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][256] = {
 /************************************************************************/
 
 /* 位数据流操作函数 */
-static VOID init_bits(struct BIT_STREAM *bits, VCPTR start, VCPTR end);
-static BOOL is_bits_end(struct BIT_STREAM *bits);
-static UINT get_bit(struct BIT_STREAM *bits);
-static VOID put_bit(struct BIT_STREAM *bits, BOOL bit);
-static BYTE get_byte(struct BIT_STREAM *bits);
-static VOID put_byte(struct BIT_STREAM *bits, BYTE byte);
+static VOID init_bits(struct BIT_STREAM *bs, VCPTR start, VCPTR end);
+static VOID flush_bits(struct BIT_STREAM *bs);
+static UINT get_bit(struct BIT_STREAM *bs);
+static BYTE get_byte(struct BIT_STREAM *bs);
+static VOID put_bits(struct BIT_STREAM *bs, UINT bits, UINT num);
 
 /* 霍夫曼树操作函数 */
 static VOID init_tree(struct HUFF_TREE *tree, INT type);
 static VOID sort_tree(struct HUFF_TREE *tree, struct HUFF_NODE *node);
-static struct HUFF_NODE *trace_node(struct HUFF_NODE *node, struct BIT_STREAM *bits);
 static struct HUFF_NODE *new_node(struct HUFF_TREE *tree, INT weight);
 static struct HUFF_NODE *new_branch(struct HUFF_TREE *tree, BYTE byte);
 static VOID swap_node(struct HUFF_TREE *tree, struct HUFF_NODE *n1, struct HUFF_NODE *n2);
+static VOID dump_node(struct HUFF_NODE *node, struct BIT_STREAM *bs);
+static struct HUFF_NODE *trace_node(struct HUFF_NODE *node, struct BIT_STREAM *bs);
 
 #ifdef QUICK_DECODE
 /* 快速解压处理专用函数 */
-static BYTE peek_7bits(struct BIT_STREAM *bits);
-static VOID skip_bits(struct BIT_STREAM *bits, UINT num);
-static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct BIT_STREAM *bits);
+static BYTE peek_7bits(struct BIT_STREAM *bs);
+static VOID skip_bits(struct BIT_STREAM *bs, UINT num);
+static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct BIT_STREAM *bs);
 #endif
 
 /************************************************************************/
 
 BOOL huff_encode(INT type, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 {
-	DAssert(FALSE);
+	BYTE byte;
+	BUFCPTR rd_ptr, rd_end_ptr;
+	BUFPTR wrt_ptr, wrt_end_ptr;
+	struct BIT_STREAM bs;
+	struct HUFF_TREE *tree;
+	struct HUFF_NODE *node;
 
-	return FALSE;
+	/* 参数有效性检查 */
+	if (!src || !src_size || !dest || !dest_size || !*dest_size || !DBetween(type, 0, CODEC_TYPE_NUM))
+		return FALSE;
+
+	/* 分配霍夫曼树结构体内存 */
+	tree = DAlloc(sizeof(struct HUFF_TREE));
+	if (!tree)
+		return FALSE;
+
+	rd_ptr = src;
+	rd_end_ptr = rd_ptr + src_size;
+	wrt_ptr = dest;
+	wrt_end_ptr = wrt_ptr + *dest_size;
+
+	/* 向第一个字节写编码类型 */
+	*wrt_ptr++ = type;
+
+	/* 将输出缓冲数据附着到位数据流结构上 */
+	init_bits(&bs, wrt_ptr, wrt_end_ptr);
+
+	/* 根据编码类型生成初始霍夫曼树 */
+	init_tree(tree, type);
+
+	/* 主循环 */
+	while (TRUE) {
+
+		/* 写缓冲不足，失败 */
+		if (bs.cur_ptr >= bs.end_ptr) {
+			DFree(tree);
+			return FALSE;
+		}
+
+		/* 读取一个字符 */
+		byte = *rd_ptr++;
+
+		/* 获取该字符对应的编码映射 */
+		node = tree->code_map[byte];
+
+		if (node) {
+
+			/* 如果映射已存在，直接从映射节点生成编码 */
+			dump_node(node, &bs);
+
+		} else {
+
+			/* 映射尚不存在，先写一个未传输码到缓冲 */
+			node = tree->code_map[NYT];
+			dump_node(node, &bs);
+
+			/* 紧接其后写入字符本身 */
+			put_bits(&bs, byte, 8U);
+
+			/* 从哈夫曼树的尾节点处创建新的分支并安置新字符数据 */
+			node = new_branch(tree, byte);
+
+			/* 新字符节点权重值置1 */
+			sort_tree(tree, node);
+
+			/* 对于非类型0编码，需要立刻进一步把权重值加到2 */
+			if (type)
+				sort_tree(tree, node);
+		}
+
+		/* 检查是否已到达读缓冲末尾 */
+		if (rd_ptr >= rd_end_ptr)
+			break;
+
+		/* 对于类型0编码需要做自适应处理，即每遇到一次编码字符时都要将其权重值加1 */
+		if (!type)
+			sort_tree(tree, node);
+	}
+
+	/* 最后书写一个传输结束码作为结束标志 */
+	node = tree->code_map[EOT];
+	dump_node(node, &bs);
+
+	/* 将位数据流中所有缓冲写回 */
+	flush_bits(&bs);
+
+	/* 压缩完毕，释放霍夫曼树结构的内存 */
+	DFree(tree);
+
+	/* 计算输出数据的大小 */
+	*dest_size = (UINT)(bs.cur_ptr - (BUFPTR)dest);
+
+	return TRUE;
 }
 
 BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
@@ -285,13 +375,14 @@ BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 	BYTE byte;
 	BUFCPTR rd_ptr, rd_end_ptr;
 	BUFPTR wrt_ptr, wrt_end_ptr;
-	struct BIT_STREAM bits;
+	struct BIT_STREAM bs;
 	struct HUFF_TREE *tree;
 	struct HUFF_NODE *node;
 #ifdef QUICK_DECODE
 	struct QDBLOCK *qd;
 #endif
 
+	/* 参数有效性检查 */
 	if (!src || !src_size || !dest || !dest_size || !*dest_size)
 		return FALSE;
 
@@ -311,42 +402,49 @@ BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 		return FALSE;
 
 	/* 将输入缓冲数据附着到位数据流结构上 */
-	init_bits(&bits, rd_ptr, rd_end_ptr);
+	init_bits(&bs, rd_ptr, rd_end_ptr);
 
 	/* 根据编码类型生成初始霍夫曼树 */
 	init_tree(tree, type);
 
+	/* 主循环 */
 	while (TRUE) {
+
+		/* 如果超出了输入范围仍未结束，则认为压缩数据已被损坏，失败 */
+		if (bs.cur_ptr > bs.end_ptr) {
+			DFree(tree);
+			return FALSE;
+		}
 
 #ifdef QUICK_DECODE
 		/* 先获取流中接下来7位数据所对应的快速解压数据（不改变为数据流的读写位置） */
-		byte = peek_7bits(&bits);
+		byte = peek_7bits(&bs);
 		qd = &tree->qd_buf[byte];
 
 		/* 判断快速解压数据是否过期 */
 		if (qd->serial >= tree->serial) {
 			/* 如果编码位数超过7位，需要继续沿节点查找，否则直接使用快速解压数据中记录的节点 */
 			if (qd->bit_cnt > QD_BIT_NUM) {
-				skip_bits(&bits, 7U);
-				node = trace_node(qd->node, &bits);
+				skip_bits(&bs, 7U);
+				node = trace_node(qd->node, &bs);
 			} else {
-				skip_bits(&bits, qd->bit_cnt);
+				skip_bits(&bs, qd->bit_cnt);
 				node = qd->node;
 			}
 		} else {
 			/* 从霍夫曼树的根节点开始查找，同时生成对应的快速解压数据 */
-			node = trace_node_qd(tree, byte, &bits);
+			node = trace_node_qd(tree, byte, &bs);
 		}
 #else
 		/* 从霍夫曼树的根节点开始查找 */
-		node = trace_node(tree->head, &bits);
+		node = trace_node(tree->head, &bs);
 #endif
 
 		/* 判断是否未传输码 */
 		if (node->ch == NYT) {
 
 			/* 位数据流的下一个字节中存放着要传输的字符数据 */
-			byte = get_byte(&bits);
+			byte = get_byte(&bs);
 
 			/* 从哈夫曼树的尾节点处创建新的分支并安置新字符数据 */
 			node = new_branch(tree, byte);
@@ -359,15 +457,15 @@ BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 				sort_tree(tree, node);
 		}
 
-		/* 如果遇到新传输码，中止解压处理 */
-		if (node->ch == NTC)
+		/* 如果遇到结束码，中止解压处理 */
+		if (node->ch == EOT)
 			break;
 
 		/* 输出一个字符 */
 		*wrt_ptr++ = node->ch;
 
-		/* 检查是否已到达缓冲区末尾 */
-		if (is_bits_end(&bits) || wrt_ptr >= wrt_end_ptr)
+		/* 检查是否已到达写缓冲末尾 */
+		if (wrt_ptr >= wrt_end_ptr)
 			break;
 
 		/* 对于类型0编码需要做自适应处理，即每遇到一次编码字符时都要将其权重值加1 */
@@ -386,91 +484,111 @@ BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 
 /************************************************************************/
 
-static VOID init_bits(struct BIT_STREAM *bits, VCPTR start, VCPTR end)
+static VOID init_bits(struct BIT_STREAM *bs, VCPTR start, VCPTR end)
 {
-	DAssert(bits && start && end && start < end);
+	DAssert(bs && start && end && start <= end);
 
-	bits->cur_ptr = (BUFPTR)start;
-	bits->end_ptr = (BUFCPTR)end;
-	bits->bit_buf = 0U;
-	bits->bit_cnt = 0U;
+	bs->cur_ptr = (VPTR)start;
+	bs->end_ptr = end;
+	bs->bit_buf = 0U;
+	bs->bit_cnt = 0U;
 }
 
-static BOOL is_bits_end(struct BIT_STREAM *bits)
+static VOID flush_bits(struct BIT_STREAM *bs)
 {
-	/* 如果当前位置已经超出了结束位置，一定已结束 */
-	if (bits->cur_ptr > bits->end_ptr)
-		return TRUE;
+	DAssert(bs && bs->cur_ptr);
 
-	/* 如果当前位置还未到达结束位置，一定还未结束 */
-	if (bits->cur_ptr < bits->end_ptr)
-		return FALSE;
+	/* 如果已经没有要写的数据了则结束 */
+	while (bs->bit_cnt) {
 
-	/* 如果当前位置刚好处于结束位置之上，需要看是否还有残余的缓冲位数据 */
-	return !bits->bit_cnt;
+		/* 如果已经到达写缓冲的末尾则停止一切写入操作 */
+		if (bs->cur_ptr >= bs->end_ptr)
+			break;
+
+		/* 回写一个字节 */
+		*bs->cur_ptr++ = bs->bit_buf;
+
+		/* 残存数据不足一个字节时，作为一个完整的字节写完后立即结束 */
+		if (bs->bit_cnt < 8) {
+			bs->bit_buf = 0U;
+			bs->bit_cnt = 0U;
+			break;
+		}
+
+		/* 消耗流中的一个字节 */
+		bs->bit_buf >>= 8;
+		bs->bit_cnt -= 8;
+	}
 }
 
-static UINT get_bit(struct BIT_STREAM *bits)
+static UINT get_bit(struct BIT_STREAM *bs)
 {
 	UINT buf;
 
-	DAssert(bits && bits->cur_ptr);
-	DAssert(!is_bits_end(bits));
+	DAssert(bs && bs->cur_ptr);
 
 	/* 如果没有缓冲，则需要先读取一个字节进缓冲 */
-	if (!bits->bit_cnt) {
-		bits->bit_buf = *bits->cur_ptr++;
-		bits->bit_cnt = 8U;
+	if (!bs->bit_cnt) {
+		bs->bit_buf = *bs->cur_ptr++;
+		bs->bit_cnt = 8U;
 	}
 
 	/* 暂存缓冲数据 */
-	buf = bits->bit_buf;
+	buf = bs->bit_buf;
 
 	/* 消耗流中的一个位 */
-	bits->bit_buf >>= 1;
-	bits->bit_cnt--;
+	bs->bit_buf >>= 1;
+	bs->bit_cnt--;
 
 	/* 返回当前位数据 */
 	return buf & 1;
 }
 
-static VOID put_bit(struct BIT_STREAM *bits, BOOL bit)
-{
-	DAssert(!is_bits_end(bits));
-	DAssert(bit == TRUE || bit == FALSE);
-
-	// TODO:
-}
-
-static BYTE get_byte(struct BIT_STREAM *bits)
+static BYTE get_byte(struct BIT_STREAM *bs)
 {
 	BYTE byte;
 
-	DAssert(bits && bits->cur_ptr);
-	DAssert(!is_bits_end(bits));
+	DAssert(bs && bs->cur_ptr);
 
 	/* 如果缓冲已不足8位，则需要先读取一个字节进缓冲 */
-	if (bits->bit_cnt < 8) {
-		bits->bit_buf |= *bits->cur_ptr++ << bits->bit_cnt;
-		bits->bit_cnt += 8;
+	if (bs->bit_cnt < 8) {
+		bs->bit_buf |= *bs->cur_ptr++ << bs->bit_cnt;
+		bs->bit_cnt += 8;
 	}
 
 	/* 暂存缓冲中的一个字节 */
-	byte = bits->bit_buf;
+	byte = bs->bit_buf;
 
 	/* 消耗流中的一个字节 */
-	bits->bit_buf >>= 8;
-	bits->bit_cnt -= 8;
+	bs->bit_buf >>= 8;
+	bs->bit_cnt -= 8;
 
 	/* 返回当前字节数据 */
 	return byte;
 }
 
-static VOID put_byte(struct BIT_STREAM *bits, BYTE byte)
+static VOID put_bits(struct BIT_STREAM *bs, UINT bits, UINT num)
 {
-	DAssert(!is_bits_end(bits));
+	DAssert(bs && bs->bit_buf && num + bs->bit_cnt <= 32);
 
-	// TODO:
+	/* 先追加输入位数据到位缓冲 */
+	bs->bit_buf |= bits << bs->bit_cnt;
+	bs->bit_cnt += num;
+
+	/* 数据写回处理 */
+	while (bs->bit_cnt >= 8) {
+
+		/* 如果已经到达写缓冲的末尾则停止一切写入操作 */
+		if (bs->cur_ptr >= bs->end_ptr)
+			break;
+
+		/* 回写一个字节 */
+		*bs->cur_ptr++ = bs->bit_buf;
+
+		/* 消耗流中的一个字节 */
+		bs->bit_buf >>= 8;
+		bs->bit_cnt -= 8;
+	}
 }
 
 static VOID init_tree(struct HUFF_TREE *tree, INT type)
@@ -496,17 +614,17 @@ static VOID init_tree(struct HUFF_TREE *tree, INT type)
 		tree->code_map[ch] = node;
 	}
 
-	/* 追加新传输码节点 */
+	/* 追加传输结束码节点 */
 	left = new_node(tree, 1);
-	left->ch = NTC;
-	tree->code_map[NTC] = left;
+	left->ch = EOT;
+	tree->code_map[EOT] = left;
 
 	/* 追加未传输码节点 */
 	right = new_node(tree, 1);
 	right->ch = NYT;
 	tree->code_map[NYT] = right;
 
-	/* 从有序链表的最末两项（NTC和NYT）开始，构建成一棵霍夫曼树 */
+	/* 从有序链表的最末两项（EOT和NYT）开始，构建成一棵霍夫曼树 */
 	while (TRUE) {
 		node = new_node(tree, left->weight + right->weight);
 		node->left = left;
@@ -558,19 +676,6 @@ static VOID sort_tree(struct HUFF_TREE *tree, struct HUFF_NODE *node)
 		tree->serial++;
 #endif
 	}
-}
-
-static struct HUFF_NODE *trace_node(struct HUFF_NODE *node, struct BIT_STREAM *bits)
-{
-	DAssert(node && bits);
-
-	/* 以node为根沿树查找叶节点，注意1表示左子节点，0表示右子节点 */
-	do {
-		node = get_bit(bits) ? node->left : node->right;
-	} while (node->left);
-
-	/* 返回查找到的叶节点 */
-	return node;
 }
 
 static struct HUFF_NODE *new_node(struct HUFF_TREE *tree, INT weight)
@@ -660,6 +765,10 @@ static struct HUFF_NODE *new_branch(struct HUFF_TREE *tree, BYTE byte)
 	right->ch = byte;
 	right->weight = 0;
 
+	/* 更新编码映射 */
+	tree->code_map[left->ch] = left;
+	tree->code_map[right->ch] = right;
+
 	return right;
 }
 
@@ -729,46 +838,78 @@ static VOID swap_node(struct HUFF_TREE *tree, struct HUFF_NODE *n1, struct HUFF_
 	}
 }
 
-#ifdef QUICK_DECODE
-static BYTE peek_7bits(struct BIT_STREAM *bits)
+static VOID dump_node(struct HUFF_NODE *node, struct BIT_STREAM *bs)
 {
-	DAssert(bits);
-	DAssert(!is_bits_end(bits));
+	UINT i, buf;
+	struct HUFF_NODE *p;
+
+	DAssert(node && bs);
+
+	/* 初始化位缓冲 */
+	i = 0U;
+	buf = 0U;
+
+	/* 以node为叶根沿树回溯，注意1表示左子节点，0表示右子节点 */
+	for (p = node->parent; p; i++, p = node->parent) {
+		buf = (buf << 1) | (p->left == node);
+		node = p;
+	}
+
+	/* 将结果写入位数据流 */
+	put_bits(bs, buf, i);
+}
+
+static struct HUFF_NODE *trace_node(struct HUFF_NODE *node, struct BIT_STREAM *bs)
+{
+	DAssert(node && bs);
+
+	/* 以node为根沿树查找叶节点，注意1表示左子节点，0表示右子节点 */
+	do {
+		node = get_bit(bs) ? node->left : node->right;
+	} while (node->left);
+
+	/* 返回查找到的叶节点 */
+	return node;
+}
+
+#ifdef QUICK_DECODE
+static BYTE peek_7bits(struct BIT_STREAM *bs)
+{
+	DAssert(bs);
 
 	/* 如果缓冲不足7位，则需要先读取一个字节进缓冲 */
-	if (bits->bit_cnt < QD_BIT_NUM) {
-		bits->bit_buf |= *bits->cur_ptr++ << bits->bit_cnt;
-		bits->bit_cnt += 8;
+	if (bs->bit_cnt < QD_BIT_NUM) {
+		bs->bit_buf |= *bs->cur_ptr++ << bs->bit_cnt;
+		bs->bit_cnt += 8;
 	}
 
 	/* 返回缓冲中的7个位，并不改变位数据流的读写位置 */
-	return bits->bit_buf & (QD_BUF_MAX - 1);
+	return bs->bit_buf & (QD_BUF_MAX - 1);
 }
 
-static VOID skip_bits(struct BIT_STREAM *bits, UINT num)
+static VOID skip_bits(struct BIT_STREAM *bs, UINT num)
 {
-	DAssert(bits && num < 8);
-	DAssert(!is_bits_end(bits));
+	DAssert(bs && num < 8);
 
 	/* 如果缓冲位数不够，则需要先读取一个字节进缓冲 */
-	if (bits->bit_cnt < num) {
-		num -= bits->bit_cnt;
-		bits->bit_buf = *bits->cur_ptr++;
-		bits->bit_cnt = 8U;
+	if (bs->bit_cnt < num) {
+		num -= bs->bit_cnt;
+		bs->bit_buf = *bs->cur_ptr++;
+		bs->bit_cnt = 8U;
 	}
 
 	/* 跳过指定个数的位 */
-	bits->bit_buf >>= num;
-	bits->bit_cnt -= num;
+	bs->bit_buf >>= num;
+	bs->bit_cnt -= num;
 }
 
-static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct BIT_STREAM *bits)
+static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct BIT_STREAM *bs)
 {
 	UINT bit_cnt, index, step;
 	struct QDBLOCK *qd;
 	struct HUFF_NODE *node, *qd_node;
 
-	DAssert(tree && bits && byte < QD_BUF_MAX);
+	DAssert(tree && bs && byte < QD_BUF_MAX);
 
 	bit_cnt = 0U;
 	qd_node = NULL;
@@ -780,7 +921,7 @@ static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct
 	do {
 
 		/* 1表示左子节点，0表示右子节点 */
-		node = get_bit(bits) ? node->left : node->right;
+		node = get_bit(bs) ? node->left : node->right;
 
 		/* 如果是第7位，保留当前node到qd_node变量 */
 		if (++bit_cnt == QD_BIT_NUM)

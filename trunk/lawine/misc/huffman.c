@@ -8,22 +8,80 @@
 
 #include "huffman.h"
 
+/*
+		暴雪所使用的动态霍夫曼编码算法。尽管该算法是一种无损压缩算法，但由于通用性较差，
+	对于一般文件压缩率不甚理想，因此通常仅被用来压缩ADPCM音频数据。
+
+		该算法具有9种编码类型（0-8），分别对应9个初始霍夫曼树。其中只有类型0为自适应算法，
+	会在每次遇到某个字符时更新其权重值，其余8种仅仅在遇到新字符时将权重值一次性设为2，
+	其后并不会再增加其权重值。也因此类型0的速度通常要慢于其他类型的算法。
+*/
+
+#define QUICK_DECODE								/* 快速解压处理开关。使用该算法可以将解压速度平均提高一倍以上 */
+
 /************************************************************************/
 
-#define CODEC_TYPE_NUM		9
+#define CODEC_TYPE_NUM		9						/* 编码类型总数 */
+
+#define NTC					256						/* 新传输码(new transmit code) */
+#define NYT					257						/* 未传输码(not yet transmitted) */
+
+#define CODE_MAP_LEN		258						/* 编码映射表大小 */
+#define NODE_BUF_LEN		(CODE_MAP_LEN * 2 - 1)	/* 节点缓冲大小 */
+
+#ifdef QUICK_DECODE
+#define QD_BIT_NUM			7						/* 快速解压索引位数 */
+#define QD_BUF_MAX			(1 << QD_BIT_NUM)		/* 快速解压缓冲大小 */
+#endif
 
 /************************************************************************/
 
-struct TREE_ITEM {
-	struct TREE_ITEM *next;
-	struct TREE_ITEM *child;
+/* 霍夫曼树节点（同时也是链表节点） */
+struct HUFF_NODE {
+	INT ch;											/* 传输字符，仅当该节点是叶节点（非分枝节点）时才有效 */
+	INT weight;										/* 权重值 */
+	struct HUFF_NODE *parent;						/* 父节点 */
+	struct HUFF_NODE *left;							/* 左子节点，编码为1 */
+	struct HUFF_NODE *right;						/* 右子节点，编码为0 */
+	struct HUFF_NODE *prev;							/* 链表中的前一个节点 */
+	struct HUFF_NODE *next;							/* 链表中的后一个节点 */
+};
+
+#ifdef QUICK_DECODE
+/* 快速解压处理用数据 */
+struct QDBLOCK {
+	UINT serial;									/* 序列号，用来标识该数据是否过期。0为无效值 */
+	UINT bit_cnt;									/* 编码位数 */
+	struct HUFF_NODE *node;							/* 节点指针，当bit_cnt<=7时为叶节点，否则为分枝节点（需要继续往下找） */
+};
+#endif
+
+/* 霍夫曼树结构体 */
+struct HUFF_TREE {
+	INT buf_cnt;									/* 有效节点缓冲数 */
+	struct HUFF_NODE *head;							/* 有序链表头节点，同时也是霍夫曼树的根节点 */
+	struct HUFF_NODE *tail;							/* 有序链表尾节点 */
+	struct HUFF_NODE node_buf[NODE_BUF_LEN];		/* 节点缓冲，为了避免动态内存分配 */
+	struct HUFF_NODE *code_map[CODE_MAP_LEN];		/* 编码映射表，下标即是编码字符（0-257）。仅用于压缩处理 */
+#ifdef QUICK_DECODE
+	UINT serial;									/* 快速解压处理序列号。仅用于解压处理 */
+	struct QDBLOCK qd_buf[QD_BUF_MAX];				/* 快速解压处理数据缓冲。仅用于解压处理 */
+#endif
+};
+
+/* 位读写数据流 */
+struct BIT_STREAM {
+	BUFPTR cur_ptr;									/* 当前数据指针 */
+	BUFCPTR end_ptr;								/* 结束位置指针 */
+	UINT bit_cnt;									/* 缓冲位数 */
+	UINT bit_buf;									/* 缓冲数据 */
 };
 
 /************************************************************************/
 
-/* Table for (de)compression. Every compression type has 258 entries */
-static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
-	{
+/* 初始霍夫曼树编码表，下标即是编码字符（0-255），字节值为该字符的权重，0表示尚不在树中 */
+static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][256] = {
+	{	/* 编码类型0 */
 		0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -40,9 +98,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型1 */
 		0x54, 0x16, 0x16, 0x0d, 0x0c, 0x08, 0x06, 0x05, 0x06, 0x05, 0x06, 0x03, 0x04, 0x04, 0x03, 0x05,
 		0x0e, 0x0b, 0x14, 0x13, 0x13, 0x09, 0x0b, 0x06, 0x05, 0x04, 0x03, 0x02, 0x03, 0x02, 0x02, 0x02,
 		0x0d, 0x07, 0x09, 0x06, 0x06, 0x04, 0x03, 0x02, 0x04, 0x03, 0x03, 0x03, 0x03, 0x03, 0x02, 0x02,
@@ -59,9 +116,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x04, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
 		0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
 		0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x01, 0x01, 0x02, 0x02, 0x02, 0x06, 0x4b,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型2 */
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x27, 0x00, 0x00, 0x23, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0xff, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x01, 0x01, 0x06, 0x0e, 0x10, 0x04,
@@ -78,9 +134,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型3 */
 		0xff, 0x0b, 0x07, 0x05, 0x0b, 0x02, 0x02, 0x02, 0x06, 0x02, 0x02, 0x01, 0x04, 0x02, 0x01, 0x03,
 		0x09, 0x01, 0x01, 0x01, 0x03, 0x04, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01,
 		0x05, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
@@ -97,9 +152,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
 		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x07, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01, 0x01,
 		0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x11,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型4 */
 		0xff, 0xfb, 0x98, 0x9a, 0x84, 0x85, 0x63, 0x64, 0x3e, 0x3e, 0x22, 0x22, 0x13, 0x13, 0x18, 0x17,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -116,9 +170,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型5 */
 		0xff, 0xf1, 0x9d, 0x9e, 0x9a, 0x9b, 0x9a, 0x97, 0x93, 0x93, 0x8c, 0x8e, 0x86, 0x88, 0x80, 0x82,
 		0x7c, 0x7c, 0x72, 0x73, 0x69, 0x6b, 0x5f, 0x60, 0x55, 0x56, 0x4a, 0x4b, 0x40, 0x41, 0x37, 0x37,
 		0x2f, 0x2f, 0x27, 0x27, 0x21, 0x21, 0x1b, 0x1c, 0x17, 0x17, 0x13, 0x13, 0x10, 0x10, 0x0d, 0x0d,
@@ -135,9 +188,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型6 */
 		0xc3, 0xcb, 0xf5, 0x41, 0xff, 0x7b, 0xf7, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -154,9 +206,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型7 */
 		0xc3, 0xd9, 0xef, 0x3d, 0xf9, 0x7c, 0xe9, 0x1e, 0xfd, 0xab, 0xf1, 0x2c, 0xfc, 0x5b, 0xfe, 0x17,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -173,9 +224,8 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
 	},
-	{
+	{	/* 编码类型8 */
 		0xba, 0xc5, 0xda, 0x33, 0xe3, 0x6d, 0xd8, 0x18, 0xe5, 0x94, 0xda, 0x23, 0xdf, 0x4a, 0xd1, 0x10,
 		0xee, 0xaf, 0xe4, 0x2c, 0xea, 0x5a, 0xde, 0x15, 0xf4, 0x87, 0xe9, 0x21, 0xf6, 0x43, 0xfc, 0x12,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -192,24 +242,579 @@ static CONST BYTE s_CodecTab[CODEC_TYPE_NUM][0x102] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
 	},
 };
+
+/************************************************************************/
+
+/* 位数据流操作函数 */
+static VOID init_bits(struct BIT_STREAM *bits, VCPTR start, VCPTR end);
+static BOOL is_bits_end(struct BIT_STREAM *bits);
+static UINT get_bit(struct BIT_STREAM *bits);
+static VOID put_bit(struct BIT_STREAM *bits, BOOL bit);
+static BYTE get_byte(struct BIT_STREAM *bits);
+static VOID put_byte(struct BIT_STREAM *bits, BYTE byte);
+
+/* 霍夫曼树操作函数 */
+static VOID init_tree(struct HUFF_TREE *tree, INT type);
+static VOID sort_tree(struct HUFF_TREE *tree, struct HUFF_NODE *node);
+static struct HUFF_NODE *trace_node(struct HUFF_NODE *node, struct BIT_STREAM *bits);
+static struct HUFF_NODE *new_node(struct HUFF_TREE *tree, INT weight);
+static struct HUFF_NODE *new_branch(struct HUFF_TREE *tree, BYTE byte);
+static VOID swap_node(struct HUFF_TREE *tree, struct HUFF_NODE *n1, struct HUFF_NODE *n2);
+
+#ifdef QUICK_DECODE
+/* 快速解压处理专用函数 */
+static BYTE peek_7bits(struct BIT_STREAM *bits);
+static VOID skip_bits(struct BIT_STREAM *bits, UINT num);
+static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct BIT_STREAM *bits);
+#endif
 
 /************************************************************************/
 
 BOOL huff_encode(INT type, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 {
 	DAssert(FALSE);
+
 	return FALSE;
 }
 
 BOOL huff_decode(VCPTR src, UINT src_size, VPTR dest, UINT *dest_size)
 {
-	DAssert(FALSE);
-	return FALSE;
+	INT type;
+	BYTE byte;
+	BUFCPTR rd_ptr, rd_end_ptr;
+	BUFPTR wrt_ptr, wrt_end_ptr;
+	struct BIT_STREAM bits;
+	struct HUFF_TREE *tree;
+	struct HUFF_NODE *node;
+#ifdef QUICK_DECODE
+	struct QDBLOCK *qd;
+#endif
+
+	if (!src || !src_size || !dest || !dest_size || !*dest_size)
+		return FALSE;
+
+	rd_ptr = src;
+	rd_end_ptr = rd_ptr + src_size;
+	wrt_ptr = dest;
+	wrt_end_ptr = wrt_ptr + *dest_size;
+
+	/* 第一个字节存放着编码类型 */
+	type = *rd_ptr++;
+	if (type >= CODEC_TYPE_NUM)
+		return FALSE;
+
+	/* 分配霍夫曼树结构体内存 */
+	tree = DAlloc(sizeof(struct HUFF_TREE));
+	if (!tree)
+		return FALSE;
+
+	/* 将输入缓冲数据附着到位数据流结构上 */
+	init_bits(&bits, rd_ptr, rd_end_ptr);
+
+	/* 根据编码类型生成初始霍夫曼树 */
+	init_tree(tree, type);
+
+	while (TRUE) {
+
+#ifdef QUICK_DECODE
+		/* 先获取流中接下来7位数据所对应的快速解压数据（不改变为数据流的读写位置） */
+		byte = peek_7bits(&bits);
+		qd = &tree->qd_buf[byte];
+
+		/* 判断快速解压数据是否过期 */
+		if (qd->serial >= tree->serial) {
+			/* 如果编码位数超过7位，需要继续沿节点查找，否则直接使用快速解压数据中记录的节点 */
+			if (qd->bit_cnt > QD_BIT_NUM) {
+				skip_bits(&bits, 7U);
+				node = trace_node(qd->node, &bits);
+			} else {
+				skip_bits(&bits, qd->bit_cnt);
+				node = qd->node;
+			}
+		} else {
+			/* 从霍夫曼树的根节点开始查找，同时生成对应的快速解压数据 */
+			node = trace_node_qd(tree, byte, &bits);
+		}
+#else
+		/* 从霍夫曼树的根节点开始查找 */
+		node = trace_node(tree->head, &bits);
+#endif
+
+		/* 判断是否未传输码 */
+		if (node->ch == NYT) {
+
+			/* 位数据流的下一个字节中存放着要传输的字符数据 */
+			byte = get_byte(&bits);
+
+			/* 从哈夫曼树的尾节点处创建新的分支并安置新字符数据 */
+			node = new_branch(tree, byte);
+
+			/* 新字符节点权重值置1 */
+			sort_tree(tree, node);
+
+			/* 对于非类型0编码，需要立刻进一步把权重值加到2 */
+			if (type)
+				sort_tree(tree, node);
+		}
+
+		/* 如果遇到新传输码，中止解压处理 */
+		if (node->ch == NTC)
+			break;
+
+		/* 输出一个字符 */
+		*wrt_ptr++ = node->ch;
+
+		/* 检查是否已到达缓冲区末尾 */
+		if (is_bits_end(&bits) || wrt_ptr >= wrt_end_ptr)
+			break;
+
+		/* 对于类型0编码需要做自适应处理，即每遇到一次编码字符时都要将其权重值加1 */
+		if (!type)
+			sort_tree(tree, node);
+	}
+
+	/* 解压完毕，释放霍夫曼树结构的内存 */
+	DFree(tree);
+
+	/* 计算输出数据的大小 */
+	*dest_size = (UINT)(wrt_ptr - (BUFPTR)dest);
+
+	return TRUE;
 }
 
 /************************************************************************/
+
+static VOID init_bits(struct BIT_STREAM *bits, VCPTR start, VCPTR end)
+{
+	DAssert(bits && start && end && start < end);
+
+	bits->cur_ptr = (BUFPTR)start;
+	bits->end_ptr = (BUFCPTR)end;
+	bits->bit_buf = 0U;
+	bits->bit_cnt = 0U;
+}
+
+static BOOL is_bits_end(struct BIT_STREAM *bits)
+{
+	/* 如果当前位置已经超出了结束位置，一定已结束 */
+	if (bits->cur_ptr > bits->end_ptr)
+		return TRUE;
+
+	/* 如果当前位置还未到达结束位置，一定还未结束 */
+	if (bits->cur_ptr < bits->end_ptr)
+		return FALSE;
+
+	/* 如果当前位置刚好处于结束位置之上，需要看是否还有残余的缓冲位数据 */
+	return !bits->bit_cnt;
+}
+
+static UINT get_bit(struct BIT_STREAM *bits)
+{
+	UINT buf;
+
+	DAssert(bits && bits->cur_ptr);
+	DAssert(!is_bits_end(bits));
+
+	/* 如果没有缓冲，则需要先读取一个字节进缓冲 */
+	if (!bits->bit_cnt) {
+		bits->bit_buf = *bits->cur_ptr++;
+		bits->bit_cnt = 8U;
+	}
+
+	/* 暂存缓冲数据 */
+	buf = bits->bit_buf;
+
+	/* 消耗流中的一个位 */
+	bits->bit_buf >>= 1;
+	bits->bit_cnt--;
+
+	/* 返回当前位数据 */
+	return buf & 1;
+}
+
+static VOID put_bit(struct BIT_STREAM *bits, BOOL bit)
+{
+	DAssert(!is_bits_end(bits));
+	DAssert(bit == TRUE || bit == FALSE);
+
+	// TODO:
+}
+
+static BYTE get_byte(struct BIT_STREAM *bits)
+{
+	BYTE byte;
+
+	DAssert(bits && bits->cur_ptr);
+	DAssert(!is_bits_end(bits));
+
+	/* 如果缓冲已不足8位，则需要先读取一个字节进缓冲 */
+	if (bits->bit_cnt < 8) {
+		bits->bit_buf |= *bits->cur_ptr++ << bits->bit_cnt;
+		bits->bit_cnt += 8;
+	}
+
+	/* 暂存缓冲中的一个字节 */
+	byte = bits->bit_buf;
+
+	/* 消耗流中的一个字节 */
+	bits->bit_buf >>= 8;
+	bits->bit_cnt -= 8;
+
+	/* 返回当前字节数据 */
+	return byte;
+}
+
+static VOID put_byte(struct BIT_STREAM *bits, BYTE byte)
+{
+	DAssert(!is_bits_end(bits));
+
+	// TODO:
+}
+
+static VOID init_tree(struct HUFF_TREE *tree, INT type)
+{
+	INT ch;
+	BUFCPTR codec;
+	struct HUFF_NODE *node, *left, *right;
+
+	DAssert(tree && DBetween(type, 0, CODEC_TYPE_NUM));
+
+	/* 先将结构体清零 */
+	DMemClr(tree, sizeof(struct HUFF_TREE));
+
+	/* 获取编码类型所对应的编码表首地址 */
+	codec = s_CodecTab[type];
+
+	/* 遍历编码表，为每个权重不为0的字符都创建一个新的节点到链表中并自动排序 */
+	for (ch = 0; ch < 0x100; ch++) {
+		node = new_node(tree, *codec++);
+		if (!node)
+			continue;
+		node->ch = ch;
+		tree->code_map[ch] = node;
+	}
+
+	/* 追加新传输码节点 */
+	left = new_node(tree, 1);
+	left->ch = NTC;
+	tree->code_map[NTC] = left;
+
+	/* 追加未传输码节点 */
+	right = new_node(tree, 1);
+	right->ch = NYT;
+	tree->code_map[NYT] = right;
+
+	/* 从有序链表的最末两项（NTC和NYT）开始，构建成一棵霍夫曼树 */
+	while (TRUE) {
+		node = new_node(tree, left->weight + right->weight);
+		node->left = left;
+		node->right = right;
+		left->parent = node;
+		right->parent = node;
+		right = left->prev;
+		if (!right)
+			break;
+		left = right->prev;
+		if (!left)
+			break;
+	}
+
+#ifdef QUICK_DECODE
+	/* 快速解压序列号初始化为1 */
+	tree->serial++;
+#endif
+}
+
+static VOID sort_tree(struct HUFF_TREE *tree, struct HUFF_NODE *node)
+{
+	struct HUFF_NODE *p;
+
+	DAssert(tree && node);
+
+	/* 从node开始，沿parent方向一直遍历到根节点 */
+    for (; node; node = node->parent) {
+
+		/* 权重值递增1 */
+		node->weight++;
+
+		/* 向前找到第一个权重值大于等于node的节点，p为该节点的next */
+		/* 如果不存在这样的节点，p为根节点 */
+		for (p = node; p->prev; p = p->prev) {
+			if (p->prev->weight >= node->weight)
+				break;
+		}
+
+		/* 为了更高的执行速度，在swap_node函数外进行该处理 */
+		if (p == node)
+			continue;
+
+		/* 交换霍夫曼树中两个节点的位置 */
+		swap_node(tree, p, node);
+
+#ifdef QUICK_DECODE
+		/* 由于霍夫曼树发生了改变，需要递增序列号以使旧的快速解压数据过期 */
+		tree->serial++;
+#endif
+	}
+}
+
+static struct HUFF_NODE *trace_node(struct HUFF_NODE *node, struct BIT_STREAM *bits)
+{
+	DAssert(node && bits);
+
+	/* 以node为根沿树查找叶节点，注意1表示左子节点，0表示右子节点 */
+	do {
+		node = get_bit(bits) ? node->left : node->right;
+	} while (node->left);
+
+	/* 返回查找到的叶节点 */
+	return node;
+}
+
+static struct HUFF_NODE *new_node(struct HUFF_TREE *tree, INT weight)
+{
+	struct HUFF_NODE *p, *node;
+
+	DAssert(tree && tree->buf_cnt < NODE_BUF_LEN);
+
+	/* 如果权重值为0则不创建 */
+	if (!weight)
+		return NULL;
+
+	/* 分配节点并初始化 */
+	node = &tree->node_buf[tree->buf_cnt++];
+	node->weight = weight;
+	node->ch = -1;
+
+	/* 链表是否还是空的？ */
+	if (!tree->head) {
+		tree->head = node;
+		tree->tail = node;
+		return node;
+	}
+
+	/* 如果该节点权重值不小于链表中权重值最大的节点，设为头节点 */
+	if (weight >= tree->head->weight) {
+		node->next = tree->head;
+		tree->head->prev = node;
+		tree->head = node;
+		return node;
+	}
+
+	/* 如果该节点权重值不大于链表中权重值最小的节点，设为尾节点 */
+	if (weight <= tree->tail->weight) {
+		node->prev = tree->tail;
+		tree->tail->next = node;
+		tree->tail = node;
+		return node;
+	}
+
+	/* 反向查找到第一个权重值不小于当前节点的节点p */
+	p = tree->tail->prev;
+	while (weight > p->weight)
+		p = p->prev;
+
+	/* 将当前节点置于节点p之后 */
+	node->prev = p;
+	node->next = p->next;
+	p->next->prev = node;
+	p->next = node;
+
+	return node;
+}
+
+static struct HUFF_NODE *new_branch(struct HUFF_TREE *tree, BYTE byte)
+{
+	struct HUFF_NODE *last, *left, *right;
+
+	DAssert(tree && tree->tail);
+	DAssert(tree->buf_cnt < NODE_BUF_LEN - 1);
+
+	/* 保留原先的尾节点指针到last */
+	last = tree->tail;
+
+	/* 分配两个新节点 */
+	left = &tree->node_buf[tree->buf_cnt++];
+	right = &tree->node_buf[tree->buf_cnt++];
+
+	/* 调整它们的连接关系 */
+	last->left = left;
+	last->right = right;
+	left->parent = last;
+	right->parent = last;
+	last->next = left;
+	left->prev = last;
+	left->next = right;
+	right->prev = left;
+
+	/* 指定新的尾节点 */
+	tree->tail = right;
+
+	/* 将旧尾节点的属性复制到left中 */
+	left->ch = last->ch;
+	left->weight = last->weight;
+
+	/* 初始化right的属性 */
+	right->ch = byte;
+	right->weight = 0;
+
+	return right;
+}
+
+static VOID swap_node(struct HUFF_TREE *tree, struct HUFF_NODE *n1, struct HUFF_NODE *n2)
+{
+	struct HUFF_NODE *p, *q;
+
+	DAssert(tree && n1 && n2 && n1 != n2);
+
+	/* 注意：n1在链表中的位置必须比n2靠前（n1更接近队首，n2更接近队尾），否则该函数不能正确工作！ */
+
+	/* 首先调整链表结构 */
+	p = n1->prev;
+	q = n2->next;
+
+	/* n2是否紧挨着n1？ */
+	if (n1->next == n2) {
+		n1->prev = n2;
+		n2->next = n1;
+	} else {
+		n1->prev = n2->prev;
+		n2->next = n1->next;
+		n1->next->prev = n2;
+		n2->prev->next = n1;
+	}
+
+	n2->prev = p;
+	n1->next = q;
+
+	/* 头节点特殊处理 */
+	if (p)
+		p->next = n2;
+	else
+		tree->head = n2;
+
+	/* 尾节点特殊处理 */
+	if (q)
+		q->prev = n1;
+	else
+		tree->tail = n1;
+
+	/* 然后调整树结构 */
+	if (n1->parent == n2->parent) {
+
+		/* 如果n1和n2同属于一个父节点，交换该父节点的左右子节点 */
+		p = n1->parent;
+		q = p->left;
+		p->left = p->right;
+		p->right = q;
+
+	} else {
+
+		p = n1->parent;
+		if (p->left == n1)
+			p->left = n2;
+		else
+			p->right = n2;
+
+		p = n2->parent;
+		if (p->left == n2)
+			p->left = n1;
+		else
+			p->right = n1;
+
+		n2->parent = n1->parent;
+		n1->parent = p;
+	}
+}
+
+#ifdef QUICK_DECODE
+static BYTE peek_7bits(struct BIT_STREAM *bits)
+{
+	DAssert(bits);
+	DAssert(!is_bits_end(bits));
+
+	/* 如果缓冲不足7位，则需要先读取一个字节进缓冲 */
+	if (bits->bit_cnt < QD_BIT_NUM) {
+		bits->bit_buf |= *bits->cur_ptr++ << bits->bit_cnt;
+		bits->bit_cnt += 8;
+	}
+
+	/* 返回缓冲中的7个位，并不改变位数据流的读写位置 */
+	return bits->bit_buf & (QD_BUF_MAX - 1);
+}
+
+static VOID skip_bits(struct BIT_STREAM *bits, UINT num)
+{
+	DAssert(bits && num < 8);
+	DAssert(!is_bits_end(bits));
+
+	/* 如果缓冲位数不够，则需要先读取一个字节进缓冲 */
+	if (bits->bit_cnt < num) {
+		num -= bits->bit_cnt;
+		bits->bit_buf = *bits->cur_ptr++;
+		bits->bit_cnt = 8U;
+	}
+
+	/* 跳过指定个数的位 */
+	bits->bit_buf >>= num;
+	bits->bit_cnt -= num;
+}
+
+static struct HUFF_NODE *trace_node_qd(struct HUFF_TREE *tree, BYTE byte, struct BIT_STREAM *bits)
+{
+	UINT bit_cnt, index, step;
+	struct QDBLOCK *qd;
+	struct HUFF_NODE *node, *qd_node;
+
+	DAssert(tree && bits && byte < QD_BUF_MAX);
+
+	bit_cnt = 0U;
+	qd_node = NULL;
+
+	/* 从霍夫曼树的根节点开始查找 */
+	node = tree->head;
+
+	/* 以node为根沿树查找叶节点 */
+	do {
+
+		/* 1表示左子节点，0表示右子节点 */
+		node = get_bit(bits) ? node->left : node->right;
+
+		/* 如果是第7位，保留当前node到qd_node变量 */
+		if (++bit_cnt == QD_BIT_NUM)
+			qd_node = node;
+
+	} while (node->left);
+
+	/* 是否大于等于7位？ */
+	if (bit_cnt >= QD_BIT_NUM) {
+
+		/* 如果大于等于7位，直接保存各项数据到对应的快速解压数据缓冲即可 */
+		qd = &tree->qd_buf[byte];
+
+		qd->serial = tree->serial;
+		qd->bit_cnt = bit_cnt;
+		qd->node = qd_node;
+
+	} else {
+
+		/* 位数不足7位时，需要填充所有可能的快速解压数据缓冲项 */
+		/* 比如6位需要填充2项、5位需要填充4项，4位需要填充8项，3位需要填充16项等等 */
+		step = 1 << bit_cnt;
+		index = byte & (step - 1);
+		qd = &tree->qd_buf[index];
+
+		for (; index < QD_BUF_MAX; index += step, qd += step) {
+			qd->serial = tree->serial;
+			qd->bit_cnt = bit_cnt;
+			qd->node = node;
+		}
+	}
+
+	return node;
+}
+#endif
 
 /************************************************************************/

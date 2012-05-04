@@ -1912,8 +1912,6 @@ static CONST ISOM_DICT *lookup_tile(INT era, CONST ISOM_TILE *tile)
 static INT gen_mega_tile_index(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict, CONST ISOM_TILE *isom, LTILECPTR tile)
 {
 	INT i, often_num, seldom_num;
-	INT often_list[16];
-	INT seldom_list[16];
 
 	DAssert(DBetween(era, 0, L_ERA_NUM));
 	DAssert(map_cx && y >= 0 && dict && isom && tile);
@@ -1927,33 +1925,27 @@ static INT gen_mega_tile_index(INT era, INT map_cx, INT y, CONST ISOM_DICT *dict
 		if (!dict->mega_mask)
 			return 0;
 
-		i = 0;
-
 		/* 生成常见MegaTile列表，并统计数目 */
-		for (often_num = 0; i < 16; i++) {
+		for (i = 0, often_num = 0; i < 16; i++) {
 			if (!(dict->mega_mask & (1 << i)))
 				break;
-			often_list[often_num++] = i;
+			often_num++;
 		}
 
 		/* 生成罕见MegaTile列表，并统计数目 */
 		for (i++, seldom_num = 0; i < 16; i++) {
 			if (!(dict->mega_mask & (1 << i)))
 				break;
-			seldom_list[seldom_num++] = i;
+			seldom_num++;
 		}
 
-#ifndef NDEBUG
-		for (i++; i < 16; i++)
-			DAssert(!(dict->mega_mask & (1 << i)));
-#endif
 		DAssert(often_num);
 
-		/* 随机一个有效的MegaTile索引 */
-		if (!seldom_num || DRandom() % 16)
-			return often_list[DRandom() % often_num];
-		else
-			return seldom_list[DRandom() % seldom_num];
+		/* 随机一个有效的MegaTile索引，该算法来自staredit */
+		if ((DRandom() % 100) >= 5 || !seldom_num)
+			return DRandom() % often_num;
+
+		return (DRandom() % seldom_num) + often_num + 1;
 	}
 
 	/* 否则与上一行同一列的MegaTile索引保持一致 */

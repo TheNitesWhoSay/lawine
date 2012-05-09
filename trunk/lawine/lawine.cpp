@@ -126,12 +126,12 @@ CAPI BOOL LAWINE_API LMpqFileExist(LHMPQ mpq, STRCPTR file_name)
 	return mpq->FileExist(file_name);
 }
 
-CAPI BOOL LAWINE_API LMpqAddFile(LHMPQ mpq, STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt)
+CAPI BOOL LAWINE_API LMpqAddFile(LHMPQ mpq, STRCPTR file_name, STRCPTR real_path, BOOL compress, BOOL encrypt)
 {
 	if (!mpq)
 		return FALSE;
 
-	return mpq->AddFile(file_name, physic_path, compress, encrypt);
+	return mpq->AddFile(file_name, real_path, compress, encrypt);
 }
 
 CAPI BOOL LAWINE_API LMpqNewFile(LHMPQ mpq, STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compress, BOOL encrypt)
@@ -425,7 +425,7 @@ CAPI IMGCPTR LAWINE_API LGrpGetImage(LHGRP grp)
 
 /************************************************************************/
 
-CAPI LHFNT LAWINE_API LFntOpen(STRCPTR name, BOOL crypt)
+CAPI LHFNT LAWINE_API LFntOpen(STRCPTR name)
 {
 	DFnt *fnt = new DFnt;
 	if (fnt->Load(name))

@@ -82,7 +82,7 @@ CAPI extern LHMPQ LAWINE_API LMpqCreate(STRCPTR name, UINT *hash_num);
 CAPI extern LHMPQ LAWINE_API LMpqOpen(STRCPTR name);
 CAPI extern BOOL LAWINE_API LMpqClose(LHMPQ mpq);
 CAPI extern BOOL LAWINE_API LMpqFileExist(LHMPQ mpq, STRCPTR file_name);
-CAPI extern BOOL LAWINE_API LMpqAddFile(LHMPQ mpq, STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt);
+CAPI extern BOOL LAWINE_API LMpqAddFile(LHMPQ mpq, STRCPTR file_name, STRCPTR real_path, BOOL compress, BOOL encrypt);
 CAPI extern BOOL LAWINE_API LMpqNewFile(LHMPQ mpq, STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compress, BOOL encrypt);
 CAPI extern BOOL LAWINE_API LMpqDelFile(LHMPQ mpq, STRCPTR file_name);
 CAPI extern LHFILE LAWINE_API LMpqOpenFile(LHMPQ mpq, STRCPTR file_name);
@@ -123,7 +123,7 @@ CAPI extern INT LAWINE_API LGrpFrameNum(LHGRP grp);
 CAPI extern BOOL LAWINE_API LGrpDecode(LHGRP grp, INT frame_no);
 CAPI extern IMGCPTR LAWINE_API LGrpGetImage(LHGRP grp);
 
-CAPI extern LHFNT LAWINE_API LFntOpen(STRCPTR name, BOOL crypt);
+CAPI extern LHFNT LAWINE_API LFntOpen(STRCPTR name);
 CAPI extern BOOL LAWINE_API LFntClose(LHFNT fnt);
 CAPI extern BOOL LAWINE_API LFntMaxSize(LHFNT fnt, SIZE *size);
 CAPI extern BOOL LAWINE_API LFntSetTemp(LHFNT fnt, IMGCPTR temp);

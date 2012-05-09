@@ -52,7 +52,7 @@ BOOL DFnt::GetMaxSize(SIZE &size) CONST
 	return TRUE;
 }
 
-BOOL DFnt::Load(STRCPTR name, BOOL crypt /* = TRUE */)
+BOOL DFnt::Load(STRCPTR name)
 {
 	if (m_DataBuf)
 		return FALSE;
@@ -63,7 +63,8 @@ BOOL DFnt::Load(STRCPTR name, BOOL crypt /* = TRUE */)
 	if (!data)
 		return FALSE;
 
-	if (!crypt || decrypt_font(data, size)) {
+	HEADER *head = reinterpret_cast<HEADER *>(data);
+	if ((head->id == IDENTIFIER) || decrypt_font(data, size)) {
 		if (!Load(data, size)) {
 			delete [] data;
 			return FALSE;

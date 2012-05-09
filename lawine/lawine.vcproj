@@ -387,6 +387,14 @@
 			Name="misc"
 			>
 			<File
+				RelativePath=".\misc\adpcm.c"
+				>
+			</File>
+			<File
+				RelativePath=".\misc\adpcm.h"
+				>
+			</File>
+			<File
 				RelativePath=".\misc\color.c"
 				>
 			</File>

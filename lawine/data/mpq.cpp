@@ -225,16 +225,16 @@ HANDLE DMpq::OpenHandle(STRCPTR file_name)
 	return m_Access->ShareHandle();
 }
 
-BOOL DMpq::AddFile(STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt)
+BOOL DMpq::AddFile(STRCPTR file_name, STRCPTR real_path, BOOL compress, BOOL encrypt)
 {
-	if (!file_name || !*file_name || !physic_path)
+	if (!file_name || !*file_name || !real_path)
 		return FALSE;
 
 	if (!m_Access || !m_Access->Writable())
 		return FALSE;
 
 	DFile file;
-	if (!file.Open(physic_path))
+	if (!file.Open(real_path))
 		return FALSE;
 
 	BOOL ret = AddFile(file_name, compress, encrypt, file);
@@ -610,6 +610,7 @@ DMpq::HASHENTRY *DMpq::PrepareAdd(STRCPTR file_name, UINT file_size, BOOL compre
 		return NULL;
 
 	if (block.flags & BLOCK_COMPRESS) {
+		// TODO: Wave file
 		INT len = DStrLen(file_name);
 		if (len > 4 && !DStrCmpI(file_name + len - 4, ".wav"))
 			compression = COMP_ADPCM_STEREO | COMP_HUFFMAN;
@@ -1304,8 +1305,7 @@ UINT DMpq::DSubFile::Write(VCPTR data, UINT size)
 	UINT sector_shift = m_FileBuffer->SectorShift();
 
 	// TODO: 目前因为没有写缓冲，所以必须写在sector边界上
-	if (m_Position & ((1 << sector_shift) - 1))
-		return 0U;
+	DAssert(!(m_Position & ((1 << sector_shift) - 1)));
 
 	UINT sector_beg = m_Position >> sector_shift;
 	UINT sector_end = (m_Position + size - 1) >> sector_shift;
@@ -1688,7 +1688,13 @@ BOOL DMpq::DFileBuffer::WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &d
 
 		data_size = 1 << SectorShift();
 
-		if (Compress(buf, size, sector_buf, data_size) && data_size < size) {
+		BYTE comp = m_Compression;
+
+		// 由于ADPCM是有损压缩，为了避免WAVE文件头被其破坏，仅第一个段强制使用Implode无损压缩
+		if (!sector && (comp & (COMP_ADPCM_MONO | COMP_ADPCM_STEREO)))
+			comp = COMP_IMPLODE;
+
+		if (Compress(comp, buf, size, sector_buf, data_size) && data_size < size) {
 			DAssert(data_size);
 			if (m_Block.flags & BLOCK_ENCRYPT)
 				EncryptData(sector_buf, data_size, m_Key + sector);
@@ -1758,7 +1764,7 @@ INT DMpq::DFileBuffer::CheckCompression(BYTE comp)
 	return cnt;
 }
 
-BOOL DMpq::DFileBuffer::Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size)
+BOOL DMpq::DFileBuffer::Compress(BYTE comp, BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size)
 {
 	DAssert(src && src_size && dest && dest_size);
 	DAssert(m_Block.flags & BLOCK_COMP_MASK);
@@ -1785,11 +1791,11 @@ BOOL DMpq::DFileBuffer::Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &
 	if (!(m_Block.flags & BLOCK_COMPRESS))
 		return FALSE;
 
-	INT cnt = CheckCompression(m_Compression);
+	INT cnt = CheckCompression(comp);
 	if (cnt < 0)
 		return FALSE;
 
-	*dest++ = m_Compression;
+	*dest++ = comp;
 	dest_size--;
 
 	if (!cnt) {
@@ -1801,7 +1807,7 @@ BOOL DMpq::DFileBuffer::Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &
 	}
 
 	// TODO:
-	if (m_Compression == COMP_IMPLODE) {
+	if (comp == COMP_IMPLODE) {
 		if (!implode(IMPLODE_BINARY, dict, src, src_size, dest, &dest_size))
 			return FALSE;
 	} else {

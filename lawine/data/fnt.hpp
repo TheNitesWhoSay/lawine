@@ -27,7 +27,7 @@ public:
 	~DFnt();
 
 	BOOL GetMaxSize(SIZE &size) CONST;
-	BOOL Load(STRCPTR name, BOOL crypt = TRUE);
+	BOOL Load(STRCPTR name);
 	VOID Clear(VOID);
 	BOOL SetTemplate(IMGCPTR temp);
 	BOOL GetCharSize(BYTE ch, SIZE &size) CONST;

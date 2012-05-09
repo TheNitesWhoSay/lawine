@@ -38,7 +38,7 @@ public:
 	BOOL CloseFile(HANDLE file);
 	HANDLE OpenHandle(STRCPTR file_name);
 
-	BOOL AddFile(STRCPTR file_name, STRCPTR physic_path, BOOL compress, BOOL encrypt);
+	BOOL AddFile(STRCPTR file_name, STRCPTR real_path, BOOL compress, BOOL encrypt);
 	BOOL NewFile(STRCPTR file_name, BUFCPTR file_data, UINT size, BOOL compress, BOOL encrypt);
 	BOOL DelFile(STRCPTR file_name);
 
@@ -234,7 +234,7 @@ protected:
 	BOOL ReadSector(UINT sector, BUFPTR buf, UINT size);
 	BOOL WriteSector(UINT sector, BUFCPTR buf, UINT size, UINT &data_size);
 	INT CheckCompression(BYTE comp);
-	BOOL Compress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size);
+	BOOL Compress(BYTE comp, BUFCPTR src, UINT src_size, BUFPTR dest, UINT &dest_size);
 	BOOL Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT dest_size);
 
 	DAccess		*m_Access;

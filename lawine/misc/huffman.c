@@ -15,6 +15,14 @@
 		该算法具有9种编码类型（0-8），分别对应9个初始霍夫曼树。其中只有类型0为自适应算法，
 	会在每次遇到某个字符时更新其权重值，其余8种仅仅在遇到新字符时将权重值一次性设为2，
 	其后并不会再增加其权重值。也因此类型0的速度通常要慢于其他类型的算法。
+
+		Beta版的星际争霸只使用了前6种（0-5）编码类型，因为当时WAVE使用的压缩算法还不是ADPCM，
+	后面的3种新的编码类型是专门为了ADPCM压缩而设计出来的，而前5种在Staredit压缩时已不再使用。
+
+		编码类型与ADPCM压缩方式对应关系表：
+			1. 类型6 - ADPCM type 4
+			2. 类型7 - ADPCM type 5
+			3. 类型8 - ADPCM type 6
 */
 
 #define QUICK_DECODE								/* 快速解压处理开关。使用该算法可以将解压速度平均提高一倍以上 */
@@ -569,7 +577,7 @@ static BYTE get_byte(struct BIT_STREAM *bs)
 
 static VOID put_bits(struct BIT_STREAM *bs, UINT bits, UINT num)
 {
-	DAssert(bs && bs->bit_buf && num + bs->bit_cnt <= 32);
+	DAssert(bs && bs->cur_ptr && num + bs->bit_cnt <= 32);
 
 	/* 先追加输入位数据到位缓冲 */
 	bs->bit_buf |= bits << bs->bit_cnt;

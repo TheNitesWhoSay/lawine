@@ -8,6 +8,7 @@
 
 #include <array.hpp>
 #include "mpq.hpp"
+#include "../misc/adpcm.h"
 #include "../misc/implode.h"
 #include "../misc/huffman.h"
 
@@ -26,17 +27,19 @@ CONST DWORD HASH_ENTRY_INVALID = 0xfffffffeUL;	// Block index for deleted hash e
 CONST DWORD HASH_ENTRY_EMPTY = 0xffffffffUL;	// Block index for free hash entry
 
 CONST DWORD BLOCK_COMP_MASK = 0x0000ff00UL;		// File compressed mask
-CONST DWORD BLOCK_IMPLODE = 0x00000100UL;		// Implode method (By PKWare Data Compression Library)
-CONST DWORD BLOCK_COMPRESS = 0x00000200UL;		// Compress methods (By multiple methods)
+CONST DWORD BLOCK_IMPLODE = 0x00000100UL;		// Implode method (by PKWare Data Compression Library)
+CONST DWORD BLOCK_COMPRESS = 0x00000200UL;		// Compress methods (by multiple methods)
 CONST DWORD BLOCK_ENCRYPT = 0x00010000UL;		// Indicates whether file is encrypted
 CONST DWORD BLOCK_FIX_KEY = 0x00020000UL;		// File decryption key has to be fixed
 CONST DWORD BLOCK_EXIST = 0x80000000UL;			// Set if file exists, reset when the file was deleted
 
 CONST BYTE COMP_NONE = 0x00;					// Not compressed
-CONST BYTE COMP_HUFFMAN = 0x01;					// Huffman compression (used on WAVE files only)
+CONST BYTE COMP_HUFFMAN = 0x01;					// Huffman compression
 CONST BYTE COMP_IMPLODE = 0x08;					// PKWARE DCL compression
-CONST BYTE COMP_ADPCM_MONO = 0x40;				// IMA ADPCM compression (mono)
-CONST BYTE COMP_ADPCM_STEREO = 0x80;			// IMA ADPCM compression (stereo)
+CONST BYTE COMP_ADPCM_BETA_MONO = 0x10;			// ADPCM compression for Starcraft Beta (mono)
+CONST BYTE COMP_ADPCM_BETA_STEREO = 0x20;		// ADPCM compression for Starcraft Beta (stereo)
+CONST BYTE COMP_ADPCM_MONO = 0x40;				// ADPCM compression (mono)
+CONST BYTE COMP_ADPCM_STEREO = 0x80;			// ADPCM compression (stereo)
 
 CONST UINT HASH_NUM_MIN = 0x00000001U;			// Minimum acceptable hash size
 CONST UINT HASH_NUM_MAX = 0x00080000U;			// Maximum acceptable hash size
@@ -46,7 +49,11 @@ CONST UINT PHYSICAL_SECTOR_SIZE = 1 << PHYSICAL_SECTOR_SHIFT;
 CONST STRCPTR HASH_TABLE_KEY = "(hash table)";
 CONST STRCPTR BLOCK_TABLE_KEY = "(block table)";
 
-CONST BYTE VALID_COMP[] = { COMP_IMPLODE, COMP_HUFFMAN, COMP_ADPCM_STEREO, COMP_ADPCM_MONO };	// In fix order!
+CONST BYTE VALID_COMP[] = {						// In fix order!
+	COMP_ADPCM_BETA_MONO, COMP_ADPCM_BETA_STEREO,
+	COMP_ADPCM_MONO, COMP_ADPCM_STEREO,
+	COMP_HUFFMAN, COMP_IMPLODE,
+};
 
 /************************************************************************/
 
@@ -1846,7 +1853,7 @@ BOOL DMpq::DFileBuffer::Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT
 
 	UINT size = dest_size;
 
-	for (INT i = 0; i < DCount(VALID_COMP); i++) {
+	for (INT i = DCount(VALID_COMP) - 1; i >= 0; i--) {
 
 		BYTE code = comp & VALID_COMP[i];
 		if (!code)
@@ -1865,12 +1872,20 @@ BOOL DMpq::DFileBuffer::Decompress(BUFCPTR src, UINT src_size, BUFPTR dest, UINT
 				return FALSE;
 			break;
 		case COMP_ADPCM_STEREO:
-			DAssert(FALSE);
-			return FALSE;
+			if (!adpcm_decode(ADPCM_STEREO, src, src_size, work, &dest_size))
+				return FALSE;
 			break;
 		case COMP_ADPCM_MONO:
-			DAssert(FALSE);
-			return FALSE;
+			if (!adpcm_decode(ADPCM_MONO, src, src_size, work, &dest_size))
+				return FALSE;
+			break;
+		case COMP_ADPCM_BETA_STEREO:
+			if (!adpcm_beta_decode(ADPCM_STEREO, src, src_size, work, &dest_size))
+				return FALSE;
+			break;
+		case COMP_ADPCM_BETA_MONO:
+			if (!adpcm_beta_decode(ADPCM_MONO, src, src_size, work, &dest_size))
+				return FALSE;
 			break;
 		}
 

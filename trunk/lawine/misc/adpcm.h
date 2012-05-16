@@ -15,13 +15,16 @@
 
 /************************************************************************/
 
-#define CHANNEL_MONO	1
-#define CHANNEL_STEREO	2
+#define ADPCM_MONO		1
+#define ADPCM_STEREO	2
 
 /************************************************************************/
 
-CAPI extern BOOL adpcm_encode(INT shift, INT channels, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
+CAPI extern BOOL adpcm_encode(INT type, INT channels, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
 CAPI extern BOOL adpcm_decode(INT channels, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
+
+CAPI extern BOOL adpcm_beta_encode(INT type, INT channels, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
+CAPI extern BOOL adpcm_beta_decode(INT channels, VCPTR src, UINT src_size, VPTR dest, UINT *dest_size);
 
 /************************************************************************/
 
